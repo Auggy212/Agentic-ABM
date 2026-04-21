@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntakeAgentContract",
+  "type": "object",
+  "required": ["input", "output"],
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": ["company", "icp", "buyers", "competitors", "gtm"],
+      "properties": {
+        "company": { "type": "object" },
+        "icp": { "type": "object" },
+        "buyers": { "type": "object" },
+        "competitors": { "type": "array", "items": { "type": "object" } },
+        "gtm": { "type": "object" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["masterContextId", "normalized"],
+      "properties": {
+        "masterContextId": { "type": "string" },
+        "normalized": { "type": "object" }
+      }
+    }
+  }
+}

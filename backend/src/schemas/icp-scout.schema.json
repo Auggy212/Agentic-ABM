@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IcpScoutContract",
+  "type": "object",
+  "required": ["input", "output"],
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": ["masterContextId"],
+      "properties": {
+        "masterContextId": { "type": "string" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["accounts"],
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "domain", "name", "icpScore", "tier"],
+            "properties": {
+              "id": { "type": "string" },
+              "domain": { "type": "string" },
+              "name": { "type": "string" },
+              "icpScore": { "type": "integer" },
+              "tier": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
