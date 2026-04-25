@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/icp_account_list.schema.json",
+  "title": "ICPAccountList",
+  "description": "Envelope returned by ICP Scout — an array of scored accounts plus run metadata.",
+  "type": "object",
+  "required": ["accounts", "meta"],
+  "additionalProperties": false,
+  "properties": {
+    "accounts": {
+      "type": "array",
+      "items": { "$ref": "icp_account.schema.json" }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["total_found", "tier_breakdown", "generated_at", "client_id"],
+      "additionalProperties": false,
+      "properties": {
+        "total_found": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of accounts returned"
+        },
+        "tier_breakdown": {
+          "type": "object",
+          "required": ["tier_1", "tier_2", "tier_3"],
+          "additionalProperties": false,
+          "properties": {
+            "tier_1": { "type": "integer", "minimum": 0 },
+            "tier_2": { "type": "integer", "minimum": 0 },
+            "tier_3": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this list was generated"
+        },
+        "client_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
