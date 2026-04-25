@@ -1,0 +1,930 @@
+openapi: 3.0.3
+info:
+  title: Agentic ABM Engine API
+  version: 1.0.0
+  description: REST API contract connecting the React frontend to the Node.js/Express backend for intake, account intelligence, verification, messaging, and campaign operations.
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+tags:
+  - name: Intake Agent
+  - name: Account Agent
+  - name: Buyer Agent
+  - name: Signal Agent
+  - name: Verification Agent
+  - name: Messaging Agent
+  - name: Campaign Agent
+paths:
+  /api/intake:
+    post:
+      tags: [Intake Agent]
+      summary: Submit intake form data
+      description: Accepts ABM strategy intake data to initialize or update master execution context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntakeRequest'
+      responses:
+        '201':
+          description: Intake created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/accounts:
+    get:
+      tags: [Account Agent]
+      summary: List all scored + tiered target accounts
+      description: Returns all target accounts with ICP scoring, account tiering, and prioritization metadata.
+      responses:
+        '200':
+          description: Accounts fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsListResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/accounts/{id}:
+    get:
+      tags: [Account Agent]
+      summary: Single account with ICP score breakdown
+      description: Fetches one account and its detailed scoring rationale across all ICP dimensions.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/buyers:
+    get:
+      tags: [Buyer Agent]
+      summary: Buying committee for a company
+      description: Returns detected and inferred buying committee members for the provided company domain.
+      parameters:
+        - name: company
+          in: query
+          required: true
+          schema:
+            type: string
+            example: acme.in
+      responses:
+        '200':
+          description: Buying committee fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyersResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/signals:
+    get:
+      tags: [Signal Agent]
+      summary: Intent signals + buying stage + intel report
+      description: Aggregates intent signals and intelligence to classify current buying stage and summarize account momentum.
+      parameters:
+        - name: company
+          in: query
+          required: true
+          schema:
+            type: string
+            example: acme.in
+      responses:
+        '200':
+          description: Signals fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalsResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/verify:
+    post:
+      tags: [Verification Agent]
+      summary: Trigger full verification pipeline
+      description: Starts asynchronous verification across account, contact, signal, and message readiness checks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+      responses:
+        '201':
+          description: Verification job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyTriggerResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/verify/status:
+    get:
+      tags: [Verification Agent]
+      summary: Verification summary report
+      description: Returns the latest verification run summary, quality findings, and readiness verdict.
+      responses:
+        '200':
+          description: Verification summary fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyStatusResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/messages/generate:
+    post:
+      tags: [Messaging Agent]
+      summary: Generate messaging package for all contacts
+      description: Creates channel-specific personalized message drafts for all requested contacts in a campaign context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessagesGenerateRequest'
+      responses:
+        '201':
+          description: Message package generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesGenerateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/messages/{contactId}:
+    get:
+      tags: [Messaging Agent]
+      summary: All channel messages for a contact
+      description: Retrieves all generated and edited channel messages associated with a specific contact.
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Contact messages fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactMessagesResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [Messaging Agent]
+      summary: Save human-edited message
+      description: Persists a user-edited message variant for one channel and marks provenance for auditability.
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactMessageRequest'
+      responses:
+        '200':
+          description: Message updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateContactMessageResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/campaigns/launch:
+    post:
+      tags: [Campaign Agent]
+      summary: Launch campaign for approved contacts
+      description: Launches campaign execution for approved contact-channel pairs with schedule and throttling controls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignLaunchRequest'
+      responses:
+        '201':
+          description: Campaign launched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignLaunchResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/campaigns/report:
+    get:
+      tags: [Campaign Agent]
+      summary: Daily metrics report
+      description: Returns daily campaign performance metrics including delivery, engagement, meetings, and conversion outcomes.
+      responses:
+        '200':
+          description: Campaign report fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignReportResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/campaigns/leads:
+    get:
+      tags: [Campaign Agent]
+      summary: All Sales Qualified Leads (score >= 60)
+      description: Lists all contacts qualified as SQLs using a lead score threshold of 60 or higher.
+      responses:
+        '200':
+          description: SQL leads fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignLeadsResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/campaigns/handoff/{contactId}:
+    post:
+      tags: [Campaign Agent]
+      summary: Confirm lead acceptance by sales exec
+      description: Records explicit sales-owner acceptance or rejection of a qualified lead and captures handoff notes.
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignHandoffRequest'
+      responses:
+        '200':
+          description: Lead handoff recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignHandoffResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: Invalid request payload.
+              details:
+                - field: companyDomain
+                  issue: must be a valid domain
+              requestId: req_8f4aa2f
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Requested resource could not be found.
+              details: []
+              requestId: req_8f4aa2f
+    UnprocessableEntity:
+      description: Semantic validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNPROCESSABLE_ENTITY
+              message: Request passed syntax checks but failed business validation.
+              details:
+                - field: contacts[1].email
+                  issue: domain does not match account company domain
+              requestId: req_8f4aa2f
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_SERVER_ERROR
+              message: Unexpected error while processing request.
+              details: []
+              requestId: req_8f4aa2f
+
+  schemas:
+    ErrorDetail:
+      type: object
+      required: [field, issue]
+      properties:
+        field:
+          type: string
+        issue:
+          type: string
+    ErrorObject:
+      type: object
+      required: [code, message, details, requestId]
+      properties:
+        code:
+          type: string
+          enum: [BAD_REQUEST, NOT_FOUND, UNPROCESSABLE_ENTITY, INTERNAL_SERVER_ERROR]
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        requestId:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+
+    CompanyProfile:
+      type: object
+      required: [name, website, industry, stage, productDescription, valueProposition]
+      properties:
+        name: { type: string }
+        website: { type: string, format: uri }
+        industry: { type: string }
+        stage: { type: string }
+        productDescription: { type: string }
+        valueProposition: { type: string }
+        differentiators:
+          type: array
+          items: { type: string }
+        pricingModel: { type: string }
+        acvRange:
+          type: object
+          required: [currency, min, max]
+          properties:
+            currency: { type: string, minLength: 3, maxLength: 3 }
+            min: { type: number }
+            max: { type: number }
+    IcpProfile:
+      type: object
+      required: [targetIndustries, employeeRange, arrRange, fundingStages, geographies, techStackSignals, buyingTriggers]
+      properties:
+        targetIndustries:
+          type: array
+          items: { type: string }
+        employeeRange:
+          type: object
+          required: [min, max]
+          properties:
+            min: { type: integer }
+            max: { type: integer }
+        arrRange:
+          type: object
+          required: [currency, min, max]
+          properties:
+            currency: { type: string, minLength: 3, maxLength: 3 }
+            min: { type: number }
+            max: { type: number }
+        fundingStages:
+          type: array
+          items: { type: string }
+        geographies:
+          type: array
+          items: { type: string }
+        techStackSignals:
+          type: array
+          items: { type: string }
+        buyingTriggers:
+          type: array
+          items: { type: string }
+        negativeIcp:
+          type: array
+          items: { type: string }
+    BuyerPersonaProfile:
+      type: object
+      required: [targetTitles, seniorityLevels, committeeSizeRange, painPoints, unstatedNeeds]
+      properties:
+        targetTitles:
+          type: array
+          items: { type: string }
+        seniorityLevels:
+          type: array
+          items: { type: string }
+        committeeSizeRange:
+          type: object
+          required: [min, max]
+          properties:
+            min: { type: integer }
+            max: { type: integer }
+        painPoints:
+          type: array
+          items: { type: string }
+        unstatedNeeds:
+          type: array
+          items: { type: string }
+    CompetitorProfile:
+      type: object
+      required: [name, weaknesses]
+      properties:
+        name: { type: string }
+        weaknesses:
+          type: array
+          items: { type: string }
+    GtmProfile:
+      type: object
+      required: [winThemes, lossThemes, preferredChannels, crmInUse]
+      properties:
+        winThemes:
+          type: array
+          items: { type: string }
+        lossThemes:
+          type: array
+          items: { type: string }
+        preferredChannels:
+          type: array
+          items: { type: string }
+        crmInUse: { type: string }
+        existingAccountList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExistingAccount'
+
+    ExistingAccount:
+      type: object
+      required: [accountName, domain]
+      properties:
+        accountName: { type: string }
+        domain: { type: string }
+        status: { type: string }
+        owner: { type: string }
+        notes: { type: string }
+
+    IntakeRequest:
+      type: object
+      required: [company, icp, buyers, competitors, gtm, submittedBy]
+      properties:
+        company: { $ref: '#/components/schemas/CompanyProfile' }
+        icp: { $ref: '#/components/schemas/IcpProfile' }
+        buyers: { $ref: '#/components/schemas/BuyerPersonaProfile' }
+        competitors:
+          type: array
+          items: { $ref: '#/components/schemas/CompetitorProfile' }
+        gtm: { $ref: '#/components/schemas/GtmProfile' }
+        submittedBy:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+            role: { type: string }
+    IntakeResponse:
+      type: object
+      required: [intakeId, status, version, createdAt]
+      properties:
+        intakeId: { type: string }
+        status: { type: string, enum: [accepted, queued, rejected] }
+        version: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Account:
+      type: object
+      required: [id, name, domain, industry, employeeCount, arr, tier, icpScore, scoreUpdatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        domain: { type: string }
+        industry: { type: string }
+        geography: { type: string }
+        employeeCount: { type: integer }
+        arr:
+          type: object
+          required: [currency, value]
+          properties:
+            currency: { type: string, minLength: 3, maxLength: 3 }
+            value: { type: number }
+        tier: { type: string, enum: [T1, T2, T3] }
+        icpScore: { type: integer, minimum: 0, maximum: 100 }
+        buyingStage: { type: string, enum: [unaware, aware, consideration, decision] }
+        scoreUpdatedAt: { type: string, format: date-time }
+    AccountsListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Account' }
+        total: { type: integer }
+
+    ScoreFactor:
+      type: object
+      required: [factor, weight, score, explanation]
+      properties:
+        factor: { type: string }
+        weight: { type: number }
+        score: { type: integer, minimum: 0, maximum: 100 }
+        explanation: { type: string }
+    AccountDetailResponse:
+      type: object
+      required: [account, scoreBreakdown]
+      properties:
+        account: { $ref: '#/components/schemas/Account' }
+        scoreBreakdown:
+          type: array
+          items: { $ref: '#/components/schemas/ScoreFactor' }
+        recommendedActions:
+          type: array
+          items: { type: string }
+
+    BuyerContact:
+      type: object
+      required: [contactId, fullName, title, seniority, email, linkedinUrl, committeeRole]
+      properties:
+        contactId: { type: string }
+        fullName: { type: string }
+        title: { type: string }
+        seniority: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        linkedinUrl: { type: string, format: uri }
+        committeeRole: { type: string, enum: [champion, decision_maker, influencer, blocker, user] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    BuyersResponse:
+      type: object
+      required: [companyDomain, committeeSize, contacts]
+      properties:
+        companyDomain: { type: string }
+        committeeSize: { type: integer }
+        contacts:
+          type: array
+          items: { $ref: '#/components/schemas/BuyerContact' }
+
+    IntentSignal:
+      type: object
+      required: [signalId, type, source, strength, observedAt, summary]
+      properties:
+        signalId: { type: string }
+        type: { type: string, enum: [hiring, funding, tech_change, web_activity, engagement, intent_data, news] }
+        source: { type: string }
+        strength: { type: integer, minimum: 0, maximum: 100 }
+        observedAt: { type: string, format: date-time }
+        summary: { type: string }
+        evidenceUrl: { type: string, format: uri }
+    SignalsResponse:
+      type: object
+      required: [companyDomain, buyingStage, intentScore, signals, intelReport]
+      properties:
+        companyDomain: { type: string }
+        buyingStage: { type: string, enum: [unaware, aware, consideration, decision] }
+        intentScore: { type: integer, minimum: 0, maximum: 100 }
+        signals:
+          type: array
+          items: { $ref: '#/components/schemas/IntentSignal' }
+        intelReport:
+          type: object
+          required: [summary, keyRisks, opportunities]
+          properties:
+            summary: { type: string }
+            keyRisks:
+              type: array
+              items: { type: string }
+            opportunities:
+              type: array
+              items: { type: string }
+
+    VerifyRequest:
+      type: object
+      required: [scope, requestedBy]
+      properties:
+        scope:
+          type: object
+          required: [accountIds, includeContacts, includeSignals, includeMessaging]
+          properties:
+            accountIds:
+              type: array
+              items: { type: string }
+            includeContacts: { type: boolean }
+            includeSignals: { type: boolean }
+            includeMessaging: { type: boolean }
+        requestedBy:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+    VerifyTriggerResponse:
+      type: object
+      required: [verificationId, status, startedAt]
+      properties:
+        verificationId: { type: string }
+        status: { type: string, enum: [queued, running] }
+        startedAt: { type: string, format: date-time }
+
+    VerificationIssue:
+      type: object
+      required: [severity, category, message]
+      properties:
+        severity: { type: string, enum: [low, medium, high, critical] }
+        category: { type: string, enum: [data_quality, compliance, deliverability, personalization, scoring] }
+        message: { type: string }
+        accountId: { type: string }
+        contactId: { type: string }
+    VerifyStatusResponse:
+      type: object
+      required: [verificationId, status, completedAt, summary, issues]
+      properties:
+        verificationId: { type: string }
+        status: { type: string, enum: [queued, running, completed, failed] }
+        completedAt: { type: string, format: date-time, nullable: true }
+        summary:
+          type: object
+          required: [accountsChecked, contactsChecked, passRate, readyToLaunch]
+          properties:
+            accountsChecked: { type: integer }
+            contactsChecked: { type: integer }
+            passRate: { type: number, minimum: 0, maximum: 1 }
+            readyToLaunch: { type: boolean }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/VerificationIssue' }
+
+    ChannelMessage:
+      type: object
+      required: [channel, subject, body, cta, status, version, lastUpdatedAt]
+      properties:
+        channel: { type: string, enum: [email, linkedin_dm, call_script, whatsapp] }
+        subject: { type: string }
+        body: { type: string }
+        cta: { type: string }
+        status: { type: string, enum: [draft, approved, sent, edited] }
+        version: { type: integer }
+        lastUpdatedAt: { type: string, format: date-time }
+        editedBy:
+          type: object
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+    MessagesGenerateRequest:
+      type: object
+      required: [accountId, contactIds, channels, tone, language]
+      properties:
+        accountId: { type: string }
+        contactIds:
+          type: array
+          items: { type: string }
+        channels:
+          type: array
+          items: { type: string, enum: [email, linkedin_dm, call_script, whatsapp] }
+        tone: { type: string, enum: [consultative, direct, executive, friendly] }
+        language: { type: string, enum: [en, hi] }
+        personalizationNotes:
+          type: array
+          items: { type: string }
+    ContactMessagePackage:
+      type: object
+      required: [contactId, messages]
+      properties:
+        contactId: { type: string }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelMessage' }
+    MessagesGenerateResponse:
+      type: object
+      required: [generationId, accountId, contactsGenerated, packages]
+      properties:
+        generationId: { type: string }
+        accountId: { type: string }
+        contactsGenerated: { type: integer }
+        packages:
+          type: array
+          items: { $ref: '#/components/schemas/ContactMessagePackage' }
+
+    ContactMessagesResponse:
+      type: object
+      required: [contactId, accountId, messages]
+      properties:
+        contactId: { type: string }
+        accountId: { type: string }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelMessage' }
+
+    UpdateContactMessageRequest:
+      type: object
+      required: [channel, subject, body, cta, editor]
+      properties:
+        channel: { type: string, enum: [email, linkedin_dm, call_script, whatsapp] }
+        subject: { type: string }
+        body: { type: string }
+        cta: { type: string }
+        editor:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+        notes: { type: string }
+    UpdateContactMessageResponse:
+      type: object
+      required: [contactId, channel, status, version, updatedAt]
+      properties:
+        contactId: { type: string }
+        channel: { type: string, enum: [email, linkedin_dm, call_script, whatsapp] }
+        status: { type: string, enum: [edited, approved] }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
+
+    CampaignLaunchContact:
+      type: object
+      required: [contactId, approvedChannels]
+      properties:
+        contactId: { type: string }
+        approvedChannels:
+          type: array
+          items: { type: string, enum: [email, linkedin_dm, call_script, whatsapp] }
+    CampaignLaunchRequest:
+      type: object
+      required: [campaignName, accountIds, contacts, schedule, launchedBy]
+      properties:
+        campaignName: { type: string }
+        accountIds:
+          type: array
+          items: { type: string }
+        contacts:
+          type: array
+          items: { $ref: '#/components/schemas/CampaignLaunchContact' }
+        schedule:
+          type: object
+          required: [startAt, timezone, dailySendLimit]
+          properties:
+            startAt: { type: string, format: date-time }
+            timezone: { type: string }
+            dailySendLimit: { type: integer }
+        launchedBy:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+    CampaignLaunchResponse:
+      type: object
+      required: [campaignId, status, launchedAt, contactsEnqueued]
+      properties:
+        campaignId: { type: string }
+        status: { type: string, enum: [scheduled, running] }
+        launchedAt: { type: string, format: date-time }
+        contactsEnqueued: { type: integer }
+
+    CampaignDailyMetric:
+      type: object
+      required: [date, delivered, opened, replied, meetingsBooked, sqlCreated, handoffsAccepted]
+      properties:
+        date: { type: string, format: date }
+        delivered: { type: integer }
+        opened: { type: integer }
+        replied: { type: integer }
+        meetingsBooked: { type: integer }
+        sqlCreated: { type: integer }
+        handoffsAccepted: { type: integer }
+    CampaignReportResponse:
+      type: object
+      required: [campaignId, generatedAt, totals, daily]
+      properties:
+        campaignId: { type: string }
+        generatedAt: { type: string, format: date-time }
+        totals:
+          type: object
+          required: [delivered, opened, replied, meetingsBooked, sqlCreated, handoffsAccepted]
+          properties:
+            delivered: { type: integer }
+            opened: { type: integer }
+            replied: { type: integer }
+            meetingsBooked: { type: integer }
+            sqlCreated: { type: integer }
+            handoffsAccepted: { type: integer }
+        daily:
+          type: array
+          items: { $ref: '#/components/schemas/CampaignDailyMetric' }
+
+    SqlLead:
+      type: object
+      required: [contactId, accountId, leadScore, qualificationReason, owner, status]
+      properties:
+        contactId: { type: string }
+        accountId: { type: string }
+        fullName: { type: string }
+        title: { type: string }
+        leadScore: { type: integer, minimum: 60, maximum: 100 }
+        qualificationReason: { type: string }
+        owner:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+        status: { type: string, enum: [new, accepted, rejected, nurturing] }
+        createdAt: { type: string, format: date-time }
+    CampaignLeadsResponse:
+      type: object
+      required: [threshold, total, leads]
+      properties:
+        threshold: { type: integer, minimum: 60, maximum: 100 }
+        total: { type: integer }
+        leads:
+          type: array
+          items: { $ref: '#/components/schemas/SqlLead' }
+
+    CampaignHandoffRequest:
+      type: object
+      required: [accepted, salesExec, note]
+      properties:
+        accepted: { type: boolean }
+        salesExec:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+        note: { type: string }
+        nextActionAt: { type: string, format: date-time }
+    CampaignHandoffResponse:
+      type: object
+      required: [contactId, status, accepted, acceptedAt, acceptedBy]
+      properties:
+        contactId: { type: string }
+        status: { type: string, enum: [accepted_by_sales, rejected_by_sales] }
+        accepted: { type: boolean }
+        acceptedAt: { type: string, format: date-time }
+        acceptedBy:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+        note: { type: string }

@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: abm-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: abm_engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/db/migrations:/docker-entrypoint-initdb.d:ro
+
+  redis:
+    image: redis:7-alpine
+    container_name: abm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  app:
+    image: node:20-alpine
+    container_name: abm-backend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://user:password@postgres:5432/abm_engine
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./:/app
+    depends_on:
+      - postgres
+      - redis
+      - n8n
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: abm-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      WEBHOOK_URL: http://localhost:5678/
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+
+volumes:
+  postgres_data:
+  redis_data:

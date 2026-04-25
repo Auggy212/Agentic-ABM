@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StorytellerContract",
+  "type": "object",
+  "required": ["input", "output"],
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": ["contactIds", "channels"],
+      "properties": {
+        "contactIds": { "type": "array", "items": { "type": "string" } },
+        "channels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["messages"],
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["contactId", "channel", "subject", "body"],
+            "properties": {
+              "contactId": { "type": "string" },
+              "channel": { "type": "string" },
+              "subject": { "type": "string" },
+              "body": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
