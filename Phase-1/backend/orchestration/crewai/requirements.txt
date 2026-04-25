@@ -1,0 +1,6 @@
+crewai
+crewai-tools
+langchain
+langchain-anthropic
+python-dotenv
+pydantic
