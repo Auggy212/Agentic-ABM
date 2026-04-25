@@ -14,9 +14,9 @@ type BadgeVariant =
   | "influencer";
 
 const variantClasses: Record<BadgeVariant, string> = {
-  tier1: "bg-blue-100 text-blue-800",
+  tier1: "bg-green-100 text-green-800",
   tier2: "bg-amber-100 text-amber-800",
-  tier3: "bg-gray-100 text-gray-600",
+  tier3: "bg-red-100 text-red-800",
   valid: "bg-green-100 text-green-800",
   invalid: "bg-red-100 text-red-800",
   "catch-all": "bg-orange-100 text-orange-800",

@@ -4,13 +4,8 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
 const titleByPath: Record<string, string> = {
-  "/intake": "Intake Agent",
-  "/accounts": "ICP Scout",
-  "/buyers": "Buyer Intel",
-  "/signals": "Signal Intel",
-  "/verify": "Verifier",
-  "/storyteller": "Storyteller",
-  "/campaigns": "Campaign"
+  "/": "Intake Page",
+  "/accounts": "Accounts Dashboard"
 };
 
 export function AppLayout({ children }: PropsWithChildren) {
@@ -18,7 +13,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const title = titleByPath[location.pathname] || "Agentic ABM";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={title} />
