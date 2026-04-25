@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/master_context.schema.json",
+  "title": "MasterContext",
+  "description": "Master Context JSON captured by the Intake Agent. Single source of truth for all downstream agents.",
+  "type": "object",
+  "required": ["company", "icp", "buyers", "competitors", "gtm", "meta"],
+  "additionalProperties": false,
+  "properties": {
+    "company": {
+      "type": "object",
+      "required": ["name", "website", "industry", "stage", "product", "value_prop", "differentiators", "pricing_model", "acv_range", "reference_customers"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "website": { "type": "string", "format": "uri" },
+        "industry": { "type": "string", "minLength": 1 },
+        "stage": {
+          "type": "string",
+          "enum": ["Seed", "Series A", "Series B", "Growth", "Enterprise"]
+        },
+        "product": { "type": "string", "minLength": 1 },
+        "value_prop": { "type": "string", "minLength": 1 },
+        "differentiators": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "pricing_model": {
+          "type": "string",
+          "enum": ["Subscription", "Usage-based", "One-time", "Enterprise"]
+        },
+        "acv_range": { "type": "string" },
+        "reference_customers": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "icp": {
+      "type": "object",
+      "required": ["industries", "company_size_employees", "company_size_arr", "funding_stage", "geographies", "tech_stack_signals", "buying_triggers", "negative_icp"],
+      "additionalProperties": false,
+      "properties": {
+        "industries": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 5
+        },
+        "company_size_employees": {
+          "type": "string",
+          "description": "Employee count range, e.g. '50-500'"
+        },
+        "company_size_arr": { "type": "string" },
+        "funding_stage": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "geographies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tech_stack_signals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "buying_triggers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "negative_icp": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "REQUIRED. Explicit list of companies or attributes that should be excluded. An empty array is valid — it signals a deliberate choice to not exclude anything. null is NOT valid."
+        }
+      }
+    },
+    "buyers": {
+      "type": "object",
+      "required": ["titles", "seniority", "buying_committee_size", "pain_points", "unstated_needs"],
+      "additionalProperties": false,
+      "properties": {
+        "titles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "seniority": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "buying_committee_size": { "type": "string" },
+        "pain_points": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unstated_needs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "competitors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "weaknesses"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "weaknesses": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "gtm": {
+      "type": "object",
+      "required": ["win_themes", "loss_themes", "channels", "crm"],
+      "additionalProperties": false,
+      "properties": {
+        "win_themes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "loss_themes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["LinkedIn", "Email", "WhatsApp", "Phone"]
+          }
+        },
+        "crm": {
+          "type": "string",
+          "enum": ["HubSpot", "Salesforce", "Zoho", "Other", "None"]
+        },
+        "existing_account_list": {
+          "type": ["string", "null"],
+          "description": "CSV upload reference path/URL, or null if not provided"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["created_at", "client_id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp"
+        },
+        "client_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semver string, starts at 1.0.0"
+        }
+      }
+    }
+  }
+}
