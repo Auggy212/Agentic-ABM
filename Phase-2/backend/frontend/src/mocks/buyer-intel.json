@@ -1,0 +1,66 @@
+{
+  "companyDomain": "northstarrevenue.com",
+  "committeeSize": 5,
+  "contacts": [
+    {
+      "contactId": "buyer_001",
+      "fullName": "Elena Martinez",
+      "title": "Chief Revenue Officer",
+      "seniority": "C-Level",
+      "email": "elena.martinez@northstarrevenue.com",
+      "linkedinUrl": "https://www.linkedin.com/in/elena-martinez-revenue",
+      "committeeRole": "decision_maker",
+      "emailStatus": "valid",
+      "painPointsSummary": "Needs a tighter view of pipeline quality across SDR and AE teams because current forecasting swings too much week to week.",
+      "recentJobChange": false
+    },
+    {
+      "contactId": "buyer_002",
+      "fullName": "Marcus Lee",
+      "title": "VP of Revenue Operations",
+      "seniority": "VP",
+      "email": "marcus.lee@northstarrevenue.com",
+      "linkedinUrl": "https://www.linkedin.com/in/marcus-lee-revops",
+      "committeeRole": "champion",
+      "emailStatus": "valid",
+      "painPointsSummary": "Owns tooling, routing, and reporting and is actively looking to reduce manual dashboard work before the next board cycle.",
+      "recentJobChange": true
+    },
+    {
+      "contactId": "buyer_003",
+      "fullName": "Priya Natarajan",
+      "title": "Senior Director of Demand Generation",
+      "seniority": "Director",
+      "email": "priya.natarajan@northstarrevenue.com",
+      "linkedinUrl": "https://www.linkedin.com/in/priya-natarajan-demandgen",
+      "committeeRole": "influencer",
+      "emailStatus": "valid",
+      "painPointsSummary": "Needs clearer attribution on paid and partner channels so campaign budget decisions stop getting delayed by conflicting reports.",
+      "recentJobChange": false
+    },
+    {
+      "contactId": "buyer_004",
+      "fullName": "David Collins",
+      "title": "Director of Finance",
+      "seniority": "Director",
+      "email": "david.collins@northstarrevenue.com",
+      "linkedinUrl": "https://www.linkedin.com/in/david-collins-finance",
+      "committeeRole": "blocker",
+      "emailStatus": "unknown",
+      "painPointsSummary": "Wants a stronger ROI case and has concerns about adding another recurring software line item without measurable efficiency gains.",
+      "recentJobChange": false
+    },
+    {
+      "contactId": "buyer_005",
+      "fullName": "Jasmine Patel",
+      "title": "Head of Sales Development",
+      "seniority": "Head",
+      "email": "jasmine.patel@northstarrevenue.com",
+      "linkedinUrl": "https://www.linkedin.com/in/jasmine-patel-sdr",
+      "committeeRole": "champion",
+      "emailStatus": "valid",
+      "painPointsSummary": "Needs faster follow-up workflows and better visibility into lead quality because rep productivity drops when routing gets messy.",
+      "recentJobChange": true
+    }
+  ]
+}

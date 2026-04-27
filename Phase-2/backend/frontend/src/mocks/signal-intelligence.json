@@ -1,0 +1,61 @@
+{
+  "companyDomain": "northstarrevenue.com",
+  "buyingStage": "evaluating",
+  "intentScore": 82,
+  "signals": [
+    {
+      "signalId": "signal_001",
+      "type": "funding",
+      "source": "Crunchbase News",
+      "strength": 91,
+      "observedAt": "2026-04-18T10:30:00.000Z",
+      "summary": "Northstar Revenue announced a $28M Series B round to expand go-to-market operations and enterprise sales coverage."
+    },
+    {
+      "signalId": "signal_002",
+      "type": "hiring",
+      "source": "LinkedIn Jobs",
+      "strength": 73,
+      "observedAt": "2026-04-13T08:15:00.000Z",
+      "summary": "The company opened roles for RevOps Manager, Senior Marketing Operations Manager, and two Enterprise SDRs."
+    },
+    {
+      "signalId": "signal_003",
+      "type": "news",
+      "source": "Company Press Release",
+      "strength": 38,
+      "observedAt": "2026-04-07T14:45:00.000Z",
+      "summary": "Northstar Revenue launched a new attribution analytics product line aimed at larger multi-region revenue teams."
+    }
+  ],
+  "intelReport": {
+    "companySnapshot": [
+      "Northstar Revenue is a growth-stage RevOps software company serving mid-market and enterprise B2B revenue teams.",
+      "The business appears to be scaling up leadership reporting, SDR coverage, and cross-functional GTM execution after fresh funding."
+    ],
+    "strategicPriorities": [
+      "Improve forecast confidence for executive leadership and board reporting.",
+      "Standardize lead routing and handoffs between marketing, SDR, and account executives.",
+      "Strengthen attribution visibility as channel mix expands."
+    ],
+    "techStack": [
+      "Salesforce",
+      "HubSpot",
+      "Gong",
+      "6sense",
+      "Looker",
+      "Outreach"
+    ],
+    "painPoints": [
+      "Pipeline reporting still depends on manual reconciliation across systems.",
+      "Attribution trust is weak when finance and marketing compare results.",
+      "New hires increase urgency for repeatable workflows and cleaner operational visibility."
+    ],
+    "recentNews": [
+      "Raised a $28M Series B round in April 2026.",
+      "Expanded hiring across RevOps, marketing operations, and SDR leadership.",
+      "Released a new analytics product for complex revenue teams."
+    ],
+    "recommendedOutreach": "Lead with how unified revenue visibility can shorten board-prep time, improve routing discipline, and help a scaling RevOps team absorb new hires without adding reporting chaos."
+  }
+}
