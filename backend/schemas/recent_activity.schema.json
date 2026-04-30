@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/recent_activity.schema.json",
+  "title": "RecentActivityStub",
+  "description": "Locked contract for LinkedIn recent activity. Phase 3 returns empty stubs; Phase 5 populates via PhantomBuster.",
+  "type": "object",
+  "required": [
+    "contact_id",
+    "posts",
+    "comments",
+    "likes",
+    "last_active_at",
+    "data_freshness",
+    "source",
+    "scraped_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "posts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RecentActivityEntry" }
+    },
+    "comments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RecentActivityEntry" }
+    },
+    "likes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RecentActivityEntry" }
+    },
+    "last_active_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "data_freshness": {
+      "type": "string",
+      "enum": ["FRESH", "STALE"]
+    },
+    "source": {
+      "type": "string",
+      "const": "PHANTOMBUSTER"
+    },
+    "scraped_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "RecentActivityEntry": {
+      "type": "object",
+      "required": ["content_summary", "posted_at", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "content_summary": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "posted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}
