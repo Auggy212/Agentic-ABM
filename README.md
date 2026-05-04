@@ -1,193 +1,334 @@
-# abm-engine
+# ABM Engine — Agentic Account-Based Marketing Engine
 
-`abm-engine` is an Agentic Account-Based Marketing Engine — a monorepo containing a FastAPI Python backend and a React+Vite+TypeScript frontend. The system orchestrates multi-phase, agentic workflows to discover, qualify, and engage target accounts.
+A full-stack application for discovering, qualifying, and engaging target accounts through agentic workflows. Built with FastAPI (Python) backend and React (TypeScript) frontend.
 
-Both applications live in the same repository and follow the same branch strategy documented in [GIT_WORKFLOW.md](./GIT_WORKFLOW.md).
+**Current Release:** Phase 3–5 Complete (`feature/Auggy` branch)
 
-## Project Structure
+---
 
-```text
-abm-engine/
-├── backend/                       # FastAPI Python application
-│   ├── agents/                    # Phase-specific agent implementations
-│   │   ├── intake/                # Lead intake & MasterContext validation
-│   │   ├── icp_scout/             # ICP discovery from multiple sources
-│   │   ├── buyer_intel/           # Buyer intelligence gathering
-│   │   ├── cp2/                   # Checkpoint 2 review & approval
-│   │   ├── cp3/                   # Checkpoint 3 messaging & client feedback
-│   │   ├── storyteller/           # Narrative generation (Claude/GPT-4o-mini)
-│   │   ├── campaign/              # Outbound campaign execution & tracking
-│   │   ├── cp4/                   # Checkpoint 4 campaign review
-│   │   ├── verifier/              # Response verification & classification
-│   │   └── recent_activity/       # Activity aggregation
-│   ├── api/routes/                # RESTful endpoints
-│   ├── db/                        # SQLite models & session management
-│   ├── schemas/                   # JSON schema definitions
-│   ├── scripts/                   # Data seeding scripts
-│   ├── services/                  # API clients (Groq, OpenAI, etc.)
-│   ├── main.py                    # FastAPI app entry point
-│   └── docker-compose.yml         # Local Redis for draft persistence
-├── frontend/                      # React+Vite+TypeScript application
-│   ├── src/
-│   │   ├── pages/                 # Page components by phase
-│   │   │   ├── Intake/            # Client intake form
-│   │   │   ├── ICP/               # ICP account discovery
-│   │   │   ├── Checkpoint2/       # Manual review & approval
-│   │   │   ├── Checkpoint3/       # Messaging & client feedback
-│   │   │   ├── ClientReview/      # Client approval portal
-│   │   │   ├── Campaign/          # Campaign execution dashboard
-│   │   │   └── Pipeline/          # Account pipeline view
-│   │   ├── components/            # Reusable UI components
-│   │   ├── mocks/                 # MSW mock handlers for offline dev
-│   │   └── App.tsx                # Main app router
-│   ├── package.json
-│   └── vite.config.ts
-├── GIT_WORKFLOW.md
-└── README.md
-```
+## 🎯 What is ABM Engine?
 
-## Latest Updates (Feature/Auggy)
+ABM Engine automates account-based marketing through orchestrated, multi-phase workflows:
 
-Phase 3–5 features now complete:
+1. **Discovery** — Use AI to find ideal customer profiles (ICPs) from multiple data sources
+2. **Qualification** — Score and rank accounts across industry, size, tech stack, funding, and buying signals
+3. **Intelligence** — Enrich accounts with buyer personas, org charts, pain points
+4. **Messaging** — Generate personalized narratives using LLMs (Claude/GPT-4o-mini)
+5. **Campaign** — Execute multi-channel outbound via Instantly.ai, Phantombuster, Twilio, or email
+6. **Feedback** — Collect client approval and engagement signals for continuous learning
+7. **Handoff** — Classify responses and prepare qualified leads for sales teams
 
-- **CP3 Agent & UI** — Message review, client feedback collection, phase gate enforcement
-- **Storyteller Agent** — Multi-tier narrative generation (Claude → GPT-4o-mini fallback), template-based validation
-- **Verifier Agent** — Mock response classification & handoff note generation
-- **Campaign Agent** — Multi-transport outbound (Instantly.ai, Phantombuster, Twilio, mock), quota tracking, circuit breakers
-- **Client Review Portal** — Buyer approval flows, client feedback aggregation
-- **CP4 Agent** — Campaign review & approval checkpoints
-- **API Routes** — `/api/cp3`, `/api/cp4`, `/api/campaign`, `/api/client_review`, `/api/storyteller`, `/api/templates`, `/api/webhooks`
-- **Test Suite** — Phase 3/4/5 schemas, campaign agent, CP4 state manager, e2e workflows
+---
 
-## How to Run Locally
+## 📦 Tech Stack
+
+### Backend
+- **Framework**: FastAPI (Python 3.10+)
+- **Database**: SQLite (with Postgres support)
+- **Cache**: Redis (draft persistence)
+- **LLMs**: Anthropic Claude, OpenAI GPT-4o-mini
+- **APIs**: Apollo.io, Harmonic.ai, Crunchbase, BuiltWith
+- **Testing**: pytest
+
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **Build**: Vite 5
+- **Styling**: Tailwind CSS
+- **HTTP**: Axios
+- **Mocking**: MSW (Mock Service Worker)
+- **State**: React Context + hooks
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
+- **Python** 3.10+
+- **Node.js** 18+
+- **Git**
+- **Optional**: Docker (for Redis)
 
-- Python 3.10+
-- Node.js 18+
-- Redis (for draft persistence; optional with Docker Compose)
+### 1. Clone & Setup Backend
 
-### Backend Setup
+```bash
+# From repo root
+cd backend
 
-1. **Create and activate a Python virtual environment:**
-   ```bash
-   cd backend
-   python -m venv .venv
-   source .venv/bin/activate   # Windows: .venv\Scripts\activate
-   ```
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Install dependencies
+pip install -r requirements.txt
 
-3. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   # Fill in API keys (see backend/README.md for details)
-   ```
+# Configure environment (see backend/README.md for API keys)
+cp .env.example .env
+# Edit .env with your API keys
+```
 
-4. **(Optional) Start Redis:**
-   ```bash
-   docker-compose up -d
-   ```
+### 2. Setup Frontend
 
-5. **Run the backend server:**
-   ```bash
-   cd ..  # Back to repo root
-   uvicorn backend.main:app --reload --port 8000
-   ```
-   API available at `http://localhost:8000`  
-   Swagger docs at `http://localhost:8000/docs`
+```bash
+# From repo root
+cd frontend
 
-### Frontend Setup
+# Install dependencies
+npm install
 
-1. **Install dependencies:**
-   ```bash
-   cd frontend
-   npm install
-   ```
+# (Optional) Create .env.local with backend URL
+echo "VITE_API_BASE_URL=http://localhost:8000" > .env.local
+```
 
-2. **Run the dev server:**
-   ```bash
-   npm run dev
-   ```
-   UI available at `http://localhost:5173` (or next available port)
+### 3. Run Both Applications
 
-### Run Tests
+**Terminal 1 — Backend:**
+```bash
+cd backend
+# Make sure .venv is activated
+uvicorn backend.main:app --reload --port 8000
+```
+- API: `http://localhost:8000`
+- Docs: `http://localhost:8000/docs`
 
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+- UI: `http://localhost:5173` (or next available port)
+
+### 4. (Optional) Start Redis
+```bash
+cd backend
+docker-compose up -d
+```
+
+---
+
+## 📋 Project Structure
+
+```
+abm-engine/
+├── backend/                          # FastAPI application
+│   ├── agents/                       # Phase-specific agents
+│   │   ├── intake/                   # MasterContext validation
+│   │   ├── icp_scout/                # Account discovery
+│   │   ├── buyer_intel/              # Buyer enrichment
+│   │   ├── cp2/                      # Checkpoint 2 review
+│   │   ├── cp3/                      # Checkpoint 3 messaging
+│   │   ├── storyteller/              # LLM narrative generation
+│   │   ├── campaign/                 # Outbound execution
+│   │   ├── cp4/                      # Checkpoint 4 review
+│   │   ├── verifier/                 # Response classification
+│   │   └── recent_activity/          # Activity tracking
+│   ├── api/routes/                   # RESTful endpoints
+│   ├── db/                           # SQLite models
+│   ├── schemas/                      # JSON schema definitions
+│   ├── scripts/                      # Data seeding
+│   ├── services/                     # API clients
+│   ├── main.py                       # FastAPI entrypoint
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md                     # Backend documentation
+│
+├── frontend/                         # React+Vite application
+│   ├── src/
+│   │   ├── pages/                    # Phase-specific pages
+│   │   │   ├── Intake/
+│   │   │   ├── ICP/
+│   │   │   ├── Checkpoint2/
+│   │   │   ├── Checkpoint3/
+│   │   │   ├── ClientReview/
+│   │   │   ├── Campaign/
+│   │   │   ├── StorytellerPage/
+│   │   │   └── Pipeline/
+│   │   ├── components/               # Reusable UI components
+│   │   ├── mocks/                    # MSW mock handlers
+│   │   ├── App.tsx                   # Main router
+│   │   └── main.tsx                  # React entrypoint
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── .env.example
+│   └── README.md                     # Frontend documentation
+│
+├── GIT_WORKFLOW.md                   # Git strategy & conventions
+└── README.md                         # This file
+```
+
+---
+
+## 🔄 User Flow (9 Phases)
+
+### Phase 1: Intake
+- User provides ICP criteria: industry, company size, budget, tech stack, geography
+- System validates and stores in `MasterContext`
+- Draft persistence to Redis (7-day TTL)
+
+### Phase 2: ICP Scout
+- Discover accounts from Apollo.io, Harmonic.ai, Crunchbase, BuiltWith
+- Score across 6 dimensions: industry, size, tech, geography, funding, triggers
+- User reviews, edits, ranks, or uploads existing CSV
+
+### Phase 3: Buyer Intelligence
+- Enrich top accounts with buyer personas, org charts, pain points
+- Research decision-making authority and procurement process
+
+### Phase 4: Checkpoint 2 (Manual Review)
+- Human approval of account list & buyer intelligence
+- Gate enforcement before proceeding
+
+### Phase 5: Checkpoint 3 (Messaging & Client Feedback)
+- Storyteller generates multi-tier narratives (tier-1: personalized, tier-2/3: generic fallback)
+- Operator reviews and approves messaging
+- Client provides feedback; system refines templates
+
+### Phase 6: Campaign Execution
+- Campaign agent orchestrates outbound:
+  - **Instantly.ai** — Email sequences
+  - **Phantombuster** — LinkedIn automation
+  - **Twilio** — SMS campaigns
+  - **Mock** — Testing without spend
+- Track: opens, clicks, replies, bounces
+- Engagement scoring, reply classification, quota tracking
+
+### Phase 7: Checkpoint 4 (Campaign Review)
+- Human review of campaign metrics and engagement
+- Approval for progression (e.g., sales handoff)
+
+### Phase 8: Client Approval Portal
+- Buyer reviews qualified accounts & approved messaging
+- Provides feedback for continuous learning
+
+### Phase 9: Verification & Handoff
+- Response verification and classification
+- Sales handoff notes
+- CRM integration
+
+---
+
+## ✨ Latest Features (Feature/Auggy)
+
+- ✅ **CP3 Agent** — Message review, operator approval, client feedback
+- ✅ **Storyteller Agent** — Multi-tier LLM generation with template validation
+- ✅ **Verifier Agent** — Response classification & handoff notes
+- ✅ **Campaign Agent** — Multi-transport outbound with quotas & circuit breakers
+- ✅ **Client Review Portal** — Buyer approval flows & feedback aggregation
+- ✅ **CP4 Agent** — Campaign performance review & approval
+- ✅ **API Routes** — 11 new endpoints for CP3, CP4, Campaign, Client Review, Storyteller, Templates, Webhooks
+- ✅ **Test Suite** — Comprehensive tests for Phase 3/4/5 schemas and agents
+- ✅ **Frontend Pages** — CP3 operator UI, client review portal, campaign dashboard, storyteller templates
+
+---
+
+## 📊 Feature Matrix
+
+| Phase | Feature | Status | Backend | Frontend |
+|-------|---------|--------|---------|----------|
+| 1 | Intake | ✅ | MasterContext CRUD | Form + draft persistence |
+| 2 | ICP Scout | ✅ | Multi-source discovery, scoring | Discovery UI, ranking |
+| 3 | Buyer Intel | ✅ | Persona/org enrichment | Detail view |
+| CP2 | Manual Review | ✅ | Approval workflow | Review & sign-off |
+| CP3 | Messaging | ✅ | Storyteller, templates | Message cards, feedback panel |
+| 5 | Campaign | ✅ | Multi-transport outbound | Campaign dashboard |
+| CP4 | Campaign Review | ✅ | Approval workflow | Metrics + approval |
+| Client | Approval Portal | ✅ | Buyer flows | Feedback form |
+| Verify | Response Classification | ✅ | Verifier agent | Handoff notes |
+
+---
+
+## 📚 Documentation
+
+- **[backend/README.md](./backend/README.md)** — Backend API, sources, scoring, environment variables, testing
+- **[frontend/README.md](./frontend/README.md)** — Frontend setup, pages, components, types, development tips
+- **[backend/docs/](./backend/docs/)** — Phase-specific dry-run scripts, handoff guides, setup instructions
+  - `cp3_dry_run_script.md`
+  - `phase3_to_phase4_handoff.md`
+  - `phase4_to_phase5_handoff.md`
+  - `GROQ_SETUP.md`
+- **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** — Branch strategy, commit conventions, PR process
+
+---
+
+## 🔧 Common Tasks
+
+### Run Backend Tests
 ```bash
 cd backend
 pytest backend/tests/ -v
 ```
 
-## User Flow
-
-### 1. **Intake Phase**
-   - User creates a `MasterContext` with ICP criteria (industry, company size, budget, tech stack, etc.)
-   - System validates and stores context in SQLite
-
-### 2. **ICP Scout Phase**
-   - Agentic discovery from Apollo.io, Harmonic.ai, Crunchbase, BuiltWith (quota-tracked)
-   - Accounts scored across 6 weighted dimensions (industry, size, tech, geography, funding, triggers)
-   - User reviews, edits, and ranks accounts; optionally uploads existing account CSV
-
-### 3. **Buyer Intelligence Phase**
-   - System enriches top-ranked accounts with buyer personas, org charts, pain points
-
-### 4. **Checkpoint 2 (Manual Review)**
-   - Human review & approval of account list and buyer intelligence
-   - Gate enforcement before proceeding to outbound
-
-### 5. **Checkpoint 3 (Messaging & Client Feedback)**
-   - Storyteller agent generates multi-tier narratives (personalized, generic fallback)
-   - Operator reviews and approves outbound messaging
-   - Client provides feedback; system learns and adjusts templates
-
-### 6. **Campaign Execution Phase**
-   - Campaign agent orchestrates outbound across Instantly.ai, Phantombuster, Twilio
-   - Engagement scoring, reply classification, quota management, circuit breakers
-   - Real-time tracking of sends, opens, replies
-
-### 7. **Checkpoint 4 (Campaign Review)**
-   - Human review of campaign performance and engagement metrics
-   - Approval for phase progression (e.g., handoff to sales)
-
-### 8. **Client Approval Portal**
-   - Buyer views qualified accounts and approved messaging
-   - Provides feedback; system refines future narratives
-
-### 9. **Verification & Handoff**
-   - Response verification and sales handoff note generation
-   - Integration with CRM and sales tools
-
-## Phase Features
-
-| Phase | Feature | Status |
-|-------|---------|--------|
-| Intake | MasterContext validation, draft persistence | ✅ |
-| ICP Scout | Multi-source discovery, quota tracking, scoring | ✅ |
-| Buyer Intel | Persona enrichment, org chart extraction | ✅ |
-| CP2 | Account list review, buyer intel approval | ✅ |
-| CP3 | Message generation, client feedback, phase gates | ✅ |
-| Campaign | Multi-transport outbound, quota tracking, circuit breakers | ✅ |
-| CP4 | Campaign review & approval | ✅ |
-| Client Review | Buyer portal, feedback aggregation | ✅ |
-| Verifier | Response classification, handoff notes | ✅ |
-
-## Environment Files
-
-- `backend/.env.example` — API keys, LLM budgets, infrastructure
-- `frontend/.env.example` — Frontend configuration
-
-Copy each example file to `.env` locally:
+### Seed Test Data
 ```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env  # If needed
+cd backend
+python backend/scripts/seed_phase3_data.py
+python backend/scripts/seed_templates.py
 ```
 
-## Documentation
+### Build Frontend for Production
+```bash
+cd frontend
+npm run build
+```
 
-- [backend/README.md](./backend/README.md) — Backend API, sources, scoring, seeding
-- [backend/docs/](./backend/docs/) — Phase-specific dry-run scripts and handoff guides
-- [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) — Git strategy and branch conventions
+### Enable Real LLM (Default: Mock)
+Edit `backend/.env`:
+```bash
+STORYTELLER_USE_MOCK=0  # Use real Claude/GPT-4o-mini
+```
+
+### Check API Docs
+Visit `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## 🌐 Environment Variables
+
+### Backend (`backend/.env`)
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `ANTHROPIC_API_KEY` | No | Claude LLM (Phase 3+) |
+| `OPENAI_API_KEY` | No | GPT-4o-mini fallback (Phase 3+) |
+| `APOLLO_API_KEY` | No | ICP Scout source |
+| `HARMONIC_API_KEY` | No | Funded startup discovery |
+| `CRUNCHBASE_API_KEY` | No | Company funding data |
+| `BUILTWITH_API_KEY` | No | Tech stack detection |
+| `REDIS_URL` | No | Draft persistence (optional) |
+| `DATABASE_URL` | No | Postgres (optional; defaults to SQLite) |
+| `TEMPLATE_ADMIN_TOKEN` | No | Prompt template writes |
+
+### Frontend (`frontend/.env.local`)
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend API endpoint |
+
+---
+
+## 🤝 Contributing
+
+1. Check [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) for branch conventions
+2. Create a feature branch: `git checkout -b feature/YourFeature`
+3. Commit with clear messages: `git commit -m "feat: Add feature description"`
+4. Push to origin: `git push origin feature/YourFeature`
+5. Open a pull request with description & testing notes
+
+---
+
+## 📞 Support & Resources
+
+- **API Docs**: `http://localhost:8000/docs` (Swagger)
+- **Issue Tracking**: GitHub Issues
+- **Discussion**: GitHub Discussions
+- **Dry-run Scripts**: See `backend/docs/`
+
+---
+
+## 📄 License
+
+[Add license info if applicable]
+
+---
+
+**Last Updated**: May 4, 2026  
+**Current Branch**: `feature/Auggy` (Phase 3–5 Complete)  
+**Python**: 3.10+  
+**Node.js**: 18+
