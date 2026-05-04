@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/outbound_send.schema.json",
+  "title": "OutboundSend",
+  "description": "Record of a single attempt by the Phase 5 Campaign agent to dispatch one CP3-approved Message via a transport (Instantly/PhantomBuster/Twilio). One Message can have multiple OutboundSend rows across retries; provider_message_id is the transport-side handle used to correlate engagement webhooks back to the send.",
+  "type": "object",
+  "required": [
+    "send_id",
+    "client_id",
+    "message_id",
+    "account_domain",
+    "contact_id",
+    "channel",
+    "transport",
+    "status",
+    "provider_message_id",
+    "error_code",
+    "error_message",
+    "attempted_at",
+    "completed_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "send_id": {"type": "string", "format": "uuid"},
+    "client_id": {"type": "string", "format": "uuid"},
+    "message_id": {"type": "string", "format": "uuid"},
+    "account_domain": {"type": "string", "minLength": 1},
+    "contact_id": {"type": ["string", "null"], "format": "uuid"},
+    "channel": {"type": "string", "enum": ["LINKEDIN_CONNECTION", "LINKEDIN_DM", "EMAIL", "WHATSAPP", "REDDIT_STRATEGY_NOTE"]},
+    "transport": {"type": "string", "enum": ["INSTANTLY", "PHANTOMBUSTER", "TWILIO", "OPERATOR_BRIEF"]},
+    "status": {"type": "string", "enum": ["QUEUED", "SENT", "FAILED", "PENDING_QUOTA_RESET", "PENDING_COOKIE_REFRESH", "PENDING_BUDGET", "HALTED"]},
+    "provider_message_id": {"type": ["string", "null"]},
+    "error_code": {"type": ["string", "null"]},
+    "error_message": {"type": ["string", "null"]},
+    "attempted_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

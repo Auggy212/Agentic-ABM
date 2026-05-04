@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button } from "./Button";
+import Button from "./Button";
 
 /**
  * Empty-state panel with optional primary action for user recovery.
@@ -22,7 +22,9 @@ export function EmptyState({ icon, heading, subtext, action }: EmptyStateProps) 
       <p className="mt-1 text-sm text-slate-500">{subtext}</p>
       {action ? (
         <div className="mt-5">
-          <Button label={action.label} onClick={action.onClick} variant="primary" size="md" />
+          <Button onClick={action.onClick} variant="primary" size="md">
+            {action.label}
+          </Button>
         </div>
       ) : null}
     </div>

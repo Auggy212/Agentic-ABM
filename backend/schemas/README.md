@@ -100,3 +100,59 @@ error.
 | `icp_account_list.schema.json` | JSON Schema for ICP Scout batch output |
 | `models.py` | Pydantic v2 models for FastAPI validation |
 | `README.md` | This file |
+
+---
+
+## Phase 3 Verification + CP2
+
+Phase 3 adds the Verifier Agent, the PhantomBuster recent-activity stub, and
+Checkpoint 2 review state.
+
+Email verification runs NeverBounce first, then calls ZeroBounce only when the
+primary result is `CATCH_ALL` or `RISKY`. That keeps the more expensive fallback
+focused on ambiguous cases and prevents silently promoting catch-all inboxes to
+valid contacts.
+
+`VerifiedDataPackage.per_source_breakdown` is required because a low
+deliverability rate without diagnosis is not actionable. When the target is
+missed, `target_miss_diagnosis` must name which source dragged the pass rate
+down.
+
+CP2 encodes the deliberate review rule as a schema invariant:
+`CP2ReviewState` cannot be `APPROVED` while any inferred claim is still
+`PENDING`, or while any account is undecided. Operators must approve, correct,
+or remove every inferred claim before Phase 4 can run.
+
+`recent_activity.schema.json` is locked now but remains a stub in Phase 3.
+Phase 5 wires PhantomBuster into the existing shape without changing the API
+contract.
+
+---
+
+## Phase 4 Storyteller + CP3
+
+Phase 4 introduces the Storyteller Agent and Checkpoint 3 review state.
+
+The generation engine is hybrid and tier-aware: Tier 1 messages route to Claude
+and hard-block untraced claims; Tier 2/3 messages route to GPT-4o-mini and
+soft-flag untraced claims so the Operator can review them. This gradient keeps
+high-value accounts under the strictest factual standard without stopping lower
+tier review queues unnecessarily.
+
+Traceability validation runs twice: once immediately after generation and again
+when CP3 review state is mutated. This is intentional belt-and-suspenders
+coverage for the main Phase 4 risk: Storyteller hallucinations creating
+client-facing factual errors.
+
+`diversity_signature` is a normalized hash of the account and buyer hooks. It
+exists to catch the "everyone gets the same hook" failure mode before a campaign
+feels generic across the list. Diversity failures are visible in CP3 but are not
+automatic hard blocks.
+
+CP3 cannot be approved while any client feedback is unresolved. That rule is
+encoded as a schema invariant and repeated in the CP3 state manager so client
+change requests cannot be bypassed accidentally.
+
+`RECENT_ACTIVITY` is already present as a message `source_type`, but Phase 4
+does not populate it. Phase 5 will wire PhantomBuster into the same field, and
+the freshness validator is already in place for that handoff.

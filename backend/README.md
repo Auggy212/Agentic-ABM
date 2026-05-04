@@ -86,4 +86,41 @@ Accounts are scored 0–100 across six weighted dimensions:
 | Funding stage | 10 |
 | Buying triggers | 10 |
 
+## Phase 4 Storyteller + CP3
+
+Additional environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Tier 2/3 Storyteller generation |
+| `ANTHROPIC_RUN_BUDGET_USD` | Per-run Claude budget cap |
+| `OPENAI_RUN_BUDGET_USD` | Per-run GPT-4o-mini budget cap |
+| `TEMPLATE_ADMIN_TOKEN` | Temporary admin gate for prompt template writes |
+
+Seed prompt templates:
+
+```bash
+python backend/scripts/seed_templates.py
+```
+
+Storyteller uses mock LLM clients by default (`STORYTELLER_USE_MOCK=1`) so local
+generation exercises validation and cost accounting without real API spend.
+
+Phase 4 endpoints:
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/storyteller/generate` | Generate Storyteller messages after CP2 approval |
+| `GET` | `/api/storyteller/messages?client_id=X` | List generated messages |
+| `GET` | `/api/templates` | List active prompt templates |
+| `POST` | `/api/templates` | Create a prompt template version (`TEMPLATE_ADMIN_TOKEN`) |
+| `GET` | `/api/checkpoint-3?client_id=X` | Open or fetch CP3 review state |
+| `POST` | `/api/checkpoint-3/approve?client_id=X` | Final Operator CP3 approval |
+| `GET` | `/api/client-review/{token}` | Sanitized token-gated client review payload |
+
+Team docs:
+
+- `backend/docs/cp3_dry_run_script.md`
+- `backend/docs/phase4_to_phase5_handoff.md`
+
 Tiers: **TIER_1** ≥ 80 · **TIER_2** 60–79 · **TIER_3** < 60

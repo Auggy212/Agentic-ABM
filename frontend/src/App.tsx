@@ -11,14 +11,33 @@ import AccountsPage from "./pages/Accounts/AccountsPage";
 import AccountDetail from "./pages/Accounts/AccountDetail";
 import AgentsPage from "./pages/Agents/AgentsPage";
 import SequencesPage from "./pages/Sequences/SequencesPage";
+import BuyersIndexPage from "./pages/Buyers/BuyersIndexPage";
+import { CampaignPage } from "./pages/CampaignPage";
+import CP2ReviewPage from "./pages/Checkpoint2/CP2ReviewPage";
+import CP3OperatorPage from "./pages/Checkpoint3/CP3OperatorPage";
+import ClientReviewPage from "./pages/ClientReview/ClientReviewPage";
+import PipelinePage from "./pages/Pipeline/PipelinePage";
+import VerificationDashboard from "./pages/Verification/VerificationDashboard";
+import { SignalsPage } from "./pages/SignalsPage";
+import { StorytellerPage } from "./pages/StorytellerPage";
 import { useNavCounts } from "@/hooks/useNavCounts";
 import { useAgents } from "@/hooks/useAgents";
 
 const NAV_ITEMS = [
   { to: "/accounts",  label: "Accounts",  icon: "target"  as const },
+  { to: "/buyers",    label: "Buyers",    icon: "users"   as const },
+  { to: "/pipeline",  label: "Pipeline",  icon: "trend"   as const },
+  { to: "/verification", label: "Verification", icon: "check" as const },
   { to: "/sequences", label: "Sequences", icon: "send"    as const },
   { to: "/agents",    label: "Agents",    icon: "robot"   as const },
   { to: "/intake",    label: "Intake",    icon: "intake"  as const },
+];
+
+const INSIGHT_ITEMS = [
+  { to: "/checkpoint-2", label: "Checkpoint 2", icon: "list" as const },
+  { to: "/signals", label: "Signals", icon: "activity" as const },
+  { to: "/campaigns", label: "Campaigns", icon: "mail" as const },
+  { to: "/storyteller", label: "Storyteller", icon: "sparkle" as const },
 ];
 
 function AgentRail() {
@@ -69,7 +88,10 @@ function AppShell() {
         {NAV_ITEMS.map((n) => {
           const active =
             location.pathname === n.to ||
-            (n.to === "/accounts" && location.pathname.startsWith("/accounts"));
+            (n.to === "/accounts" && location.pathname.startsWith("/accounts")) ||
+            (n.to === "/buyers" && location.pathname.startsWith("/buyers")) ||
+            (n.to === "/pipeline" && location.pathname.startsWith("/pipeline")) ||
+            (n.to === "/verification" && location.pathname.startsWith("/verification"));
           return (
             <Link key={n.to} to={n.to} className="nav-item" data-active={String(active)}>
               <Icon name={n.icon} size={15} />
@@ -80,15 +102,14 @@ function AppShell() {
         })}
 
         <div className="nav-section">Insights</div>
-        <button className="nav-item" data-active="false">
-          <Icon name="trend" size={15} /><span>Pipeline</span>
-        </button>
-        <button className="nav-item" data-active="false">
-          <Icon name="money" size={15} /><span>Attribution</span>
-        </button>
-        <button className="nav-item" data-active="false">
-          <Icon name="list" size={15} /><span>Saved views</span>
-        </button>
+        {INSIGHT_ITEMS.map((n) => {
+          const active = location.pathname === n.to || location.pathname.startsWith(`${n.to}/`);
+          return (
+            <Link key={n.to} to={n.to} className="nav-item" data-active={String(active)}>
+              <Icon name={n.icon} size={15} /><span>{n.label}</span>
+            </Link>
+          );
+        })}
 
         <div className="nav-section">Settings</div>
         <button className="nav-item" data-active="false">
@@ -111,6 +132,14 @@ function AppShell() {
           <Route path="/intake/resume" element={<ResumeDraft />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/accounts/:id" element={<AccountDetail />} />
+          <Route path="/buyers" element={<BuyersIndexPage />} />
+          <Route path="/pipeline" element={<PipelinePage />} />
+          <Route path="/verification" element={<VerificationDashboard />} />
+          <Route path="/checkpoint-2" element={<CP2ReviewPage />} />
+          <Route path="/checkpoint-3" element={<CP3OperatorPage />} />
+          <Route path="/signals" element={<SignalsPage />} />
+          <Route path="/campaigns" element={<CampaignPage />} />
+          <Route path="/storyteller" element={<StorytellerPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/sequences" element={<SequencesPage />} />
         </Routes>
@@ -128,6 +157,13 @@ function AppShell() {
 function RootRouter() {
   const location = useLocation();
   if (location.pathname === "/") return <LandingPage />;
+  if (location.pathname.startsWith("/client-review/")) {
+    return (
+      <Routes>
+        <Route path="/client-review/:share_token" element={<ClientReviewPage />} />
+      </Routes>
+    );
+  }
   return <AppShell />;
 }
 

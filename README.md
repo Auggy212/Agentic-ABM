@@ -60,3 +60,19 @@ npm run dev
 - `backend/.env.example` includes service keys and infrastructure placeholders
 
 Copy each example file to a local `.env` when wiring the real apps.
+
+## Phase 4
+
+Phase 4 backend support is wired for Storyteller, prompt templates, and CP3:
+
+```bash
+python backend/scripts/seed_templates.py
+pytest backend/tests/ -q
+```
+
+Mock mode is enabled by default for Storyteller (`STORYTELLER_USE_MOCK=1`), so local runs do not spend real Claude or OpenAI budget.
+
+Team dry-run materials:
+
+- `backend/docs/cp3_dry_run_script.md`
+- `backend/docs/phase4_to_phase5_handoff.md`

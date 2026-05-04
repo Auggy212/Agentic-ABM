@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { api } from "@/lib/api";
 import Btn from "@/components/ui/Btn";
 import Icon from "@/components/ui/Icon";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useCopilotContext } from "@/hooks/useCopilotContext";
 import type { CopilotMessage } from "@/types/copilot";
 
+interface CopilotAPIResponse {
+  text: string;
+  trace?: Array<{ text: string; done: boolean }>;
+  cards?: Array<{ title: string; body: string; actions: string[] }>;
+}
+
 export default function Copilot() {
   const { data: ctx, isLoading } = useCopilotContext();
 
   const [thread, setThread] = useState<CopilotMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Seed initial message once context loads
@@ -31,9 +39,10 @@ export default function Copilot() {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [thread]);
 
-  function send() {
+  async function send() {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || sending) return;
+
     const userMsg: CopilotMessage = {
       id: uuidv4(),
       from: "user",
@@ -43,23 +52,35 @@ export default function Copilot() {
     };
     setThread((t) => [...t, userMsg]);
     setDraft("");
-    setTimeout(() => {
-      setThread((t) => [
-        ...t,
-        {
-          id: uuidv4(),
-          from: "agent",
-          name: "ABM Copilot",
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          trace: [
-            { text: `Parsing intent: ${text.length > 40 ? text.slice(0, 40) + "…" : text}`, done: true },
-            { text: "Querying account graph", done: true },
-            { text: "Drafting plan", done: false },
-          ],
-          text: "Got it — I'm working on that. I'll surface the plan in a moment with the accounts and steps to confirm before anything ships.",
-        },
-      ]);
-    }, 600);
+    setSending(true);
+
+    try {
+      const { data } = await api.post<CopilotAPIResponse>("/api/copilot/message", {
+        message: text,
+      });
+
+      const agentMsg: CopilotMessage = {
+        id: uuidv4(),
+        from: "agent",
+        name: "ABM Copilot",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: data.text,
+        trace: data.trace,
+        cards: data.cards,
+      };
+      setThread((t) => [...t, agentMsg]);
+    } catch (error) {
+      const errorMsg: CopilotMessage = {
+        id: uuidv4(),
+        from: "agent",
+        name: "ABM Copilot",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: "Sorry, I encountered an error processing your request. Please try again.",
+      };
+      setThread((t) => [...t, errorMsg]);
+    } finally {
+      setSending(false);
+    }
   }
 
   const chips = ctx?.chips ?? [];
@@ -69,7 +90,7 @@ export default function Copilot() {
     <aside className="copilot">
       <div className="copilot-head">
         <div className="copilot-head-title">Copilot</div>
-        <div className="copilot-head-meta">claude-haiku · {agentLabel}</div>
+        <div className="copilot-head-meta">groq · {agentLabel}</div>
       </div>
 
       <div className="copilot-body" ref={bodyRef}>
@@ -134,12 +155,15 @@ export default function Copilot() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }}
+          disabled={sending}
         />
         <div className="copilot-composer-foot">
           <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
             ⌘↵ to send · {ctx ? `${ctx.account_count} accounts · ${ctx.sequence_count} sequences` : "loading…"}
           </span>
-          <Btn variant="accent" size="sm" icon="send" onClick={send}>Send</Btn>
+          <Btn variant="accent" size="sm" icon="send" onClick={send} disabled={sending}>
+            {sending ? "Sending…" : "Send"}
+          </Btn>
         </div>
       </div>
     </aside>

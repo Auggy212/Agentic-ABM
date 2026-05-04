@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -30,6 +31,33 @@ APOLLO_BASE_URL = "https://api.apollo.io/v1"
 _NF = "not_found"
 _PAGE_SIZE = 25          # Apollo free tier returns up to 25 per page
 _MAX_PAGES = 2           # cap at 2 pages (50 results) per free-tier call
+
+
+@dataclass
+class RawPastRole:
+    company: str
+    title: str
+    start_date: str = _NF
+    end_date: str = _NF
+
+
+@dataclass
+class RawContact:
+    contact_id: str
+    first_name: str
+    last_name: str
+    full_name: str
+    apollo_title: str
+    current_title: str
+    seniority_label: str
+    department: str
+    email: str
+    phone: str
+    linkedin_url: str
+    account_domain: str
+    tenure_current_role_months: int | str = _NF
+    tenure_current_company_months: int | str = _NF
+    past_roles: list[RawPastRole] = field(default_factory=list)
 
 
 def _safe(d: dict, *keys: str, default: Any = _NF) -> Any:
@@ -119,6 +147,87 @@ class ApolloSource(BaseSource):
 
     def __init__(self, api_key: str = "") -> None:
         self._api_key = api_key or APOLLO_API_KEY
+
+    async def search_contacts(
+        self,
+        domain: str,
+        titles: list[str],
+        seniority_levels: list[str],
+        max_results: int = 10,
+    ) -> list[RawContact]:
+        if not self._api_key:
+            logger.warning("ApolloSource: APOLLO_API_KEY not set — skipping contact search")
+            return []
+
+        headers = {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "X-Api-Key": self._api_key,
+        }
+        body: dict[str, Any] = {
+            "q_organization_domains": domain,
+            "person_titles": titles,
+            "person_seniorities": seniority_levels,
+            "per_page": max_results,
+            "page": 1,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{APOLLO_BASE_URL}/mixed_people/search",
+                    headers=headers,
+                    json=body,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.HTTPStatusError as exc:
+            logger.error("ApolloSource contact HTTP %d: %s", exc.response.status_code, exc.response.text[:200])
+            return []
+        except Exception as exc:
+            logger.error("ApolloSource contact request failed: %s", exc)
+            return []
+
+        contacts: list[RawContact] = []
+        for person in (data.get("people") or data.get("contacts") or [])[:max_results]:
+            first_name = person.get("first_name") or _NF
+            last_name = person.get("last_name") or _NF
+            full_name = person.get("name") or " ".join(
+                part for part in [
+                    first_name if first_name != _NF else "",
+                    last_name if last_name != _NF else "",
+                ]
+                if part
+            ) or _NF
+            title = person.get("title") or _NF
+            departments = person.get("departments")
+            contacts.append(RawContact(
+                contact_id=str(person.get("id") or f"{domain}:{full_name}:{title}"),
+                first_name=first_name,
+                last_name=last_name,
+                full_name=full_name,
+                apollo_title=title,
+                current_title=title,
+                seniority_label=person.get("seniority") or _NF,
+                department=departments[0] if isinstance(departments, list) and departments else person.get("department") or _NF,
+                email=person.get("email") or _NF,
+                phone=person.get("phone") or person.get("phone_number") or _NF,
+                linkedin_url=person.get("linkedin_url") or _NF,
+                account_domain=domain,
+                past_roles=[
+                    RawPastRole(
+                        company=role.get("organization_name") or role.get("company") or _NF,
+                        title=role.get("title") or _NF,
+                        start_date=role.get("start_date") or _NF,
+                        end_date=role.get("end_date") or _NF,
+                    )
+                    for role in (person.get("employment_history") or [])[:3]
+                    if isinstance(role, dict)
+                ],
+            ))
+
+        logger.info("ApolloSource: returned %d contacts for %s", len(contacts), domain)
+        return contacts
 
     async def search(self, filters: ICPFilters) -> List[RawCompany]:
         if not self._api_key:
