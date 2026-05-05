@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/cp3_review_state.schema.json",
+  "title": "CP3ReviewState",
+  "description": "Human-in-the-loop review state for Checkpoint 3 (Operator + Client). Phase 5 (Campaign Execution) is hard-blocked until status=APPROVED. Schema invariants: APPROVED requires every message reviewed AND every buyer decided AND every client_feedback resolved (the User Journey 'client feedback must be resolved before approval' rule).",
+  "type": "object",
+  "required": [
+    "client_id",
+    "status",
+    "opened_at",
+    "operator_completed_at",
+    "client_share_sent_at",
+    "client_completed_at",
+    "approved_at",
+    "reviewer",
+    "client_share_token",
+    "client_share_email",
+    "client_review_sample_ids",
+    "message_reviews",
+    "buyer_approvals",
+    "client_feedback",
+    "aggregate_progress",
+    "blockers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {"type": "string", "format": "uuid"},
+    "status": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "OPERATOR_REVIEW",
+        "CLIENT_REVIEW",
+        "CHANGES_REQUESTED",
+        "APPROVED",
+        "REJECTED"
+      ]
+    },
+    "opened_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "operator_completed_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "client_share_sent_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "client_completed_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "approved_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "reviewer": {"type": "string", "description": "Operator email or identifier"},
+    "client_share_token": {
+      "anyOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]
+    },
+    "client_share_email": {
+      "anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
+    },
+    "client_review_sample_ids": {
+      "type": "array",
+      "items": {"type": "string", "format": "uuid"},
+      "description": "Curated sample (typically 5) of message_ids shown to client"
+    },
+    "message_reviews": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/MessageReview"}
+    },
+    "buyer_approvals": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/BuyerApproval"}
+    },
+    "client_feedback": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/ClientFeedback"}
+    },
+    "aggregate_progress": {
+      "type": "object",
+      "required": [
+        "total_messages",
+        "reviewed_messages",
+        "approved_messages",
+        "edited_messages",
+        "regenerated_messages",
+        "total_buyers",
+        "approved_buyers",
+        "client_feedback_total",
+        "client_feedback_unresolved"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_messages": {"type": "integer", "minimum": 0},
+        "reviewed_messages": {"type": "integer", "minimum": 0},
+        "approved_messages": {"type": "integer", "minimum": 0},
+        "edited_messages": {"type": "integer", "minimum": 0},
+        "regenerated_messages": {"type": "integer", "minimum": 0},
+        "total_buyers": {"type": "integer", "minimum": 0},
+        "approved_buyers": {"type": "integer", "minimum": 0},
+        "client_feedback_total": {"type": "integer", "minimum": 0},
+        "client_feedback_unresolved": {"type": "integer", "minimum": 0}
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "string", "minLength": 1},
+          "message": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "MessageReview": {
+      "type": "object",
+      "required": [
+        "message_id",
+        "review_decision",
+        "operator_edits",
+        "review_notes",
+        "reviewed_at",
+        "opened_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"},
+        "review_decision": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "EDITED", "REGENERATED", "REJECTED"]
+        },
+        "operator_edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["layer", "before", "after", "edited_at"],
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "type": "string",
+                "enum": ["account_hook", "buyer_hook", "pain", "value", "subject", "body"]
+              },
+              "before": {"type": "string"},
+              "after": {"type": "string"},
+              "edited_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
+        "review_notes": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "reviewed_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+        "opened_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "UI viewport telemetry. Buyer-level approval gate requires opened_count >= 1 for every message."
+        }
+      }
+    },
+    "BuyerApproval": {
+      "type": "object",
+      "required": [
+        "contact_id",
+        "account_domain",
+        "all_messages_reviewed",
+        "buyer_decision",
+        "buyer_notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "contact_id": {"type": "string", "format": "uuid"},
+        "account_domain": {"type": "string", "minLength": 1},
+        "all_messages_reviewed": {"type": "boolean"},
+        "buyer_decision": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "NEEDS_REVISION", "REMOVED"]
+        },
+        "buyer_notes": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+      }
+    },
+    "ClientFeedback": {
+      "type": "object",
+      "required": [
+        "feedback_id",
+        "message_id",
+        "feedback_text",
+        "sentiment",
+        "resolved",
+        "resolved_by",
+        "resolution_notes",
+        "submitted_at",
+        "resolved_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "feedback_id": {"type": "string", "format": "uuid"},
+        "message_id": {
+          "anyOf": [
+            {"type": "string", "format": "uuid"},
+            {"type": "null"}
+          ],
+          "description": "Null = general (non-message-specific) feedback"
+        },
+        "feedback_text": {"type": "string", "minLength": 1},
+        "sentiment": {
+          "type": "string",
+          "enum": ["POSITIVE", "NEUTRAL", "NEGATIVE", "CHANGE_REQUEST"]
+        },
+        "resolved": {"type": "boolean"},
+        "resolved_by": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "resolution_notes": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "submitted_at": {"type": "string", "format": "date-time"},
+        "resolved_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
+      }
+    }
+  }
+}

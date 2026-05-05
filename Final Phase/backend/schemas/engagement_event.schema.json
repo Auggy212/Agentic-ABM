@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/engagement_event.schema.json",
+  "title": "EngagementEvent",
+  "description": "Normalized engagement signal received from a transport webhook (Instantly, PhantomBuster, Twilio). Phase 5 engagement_scorer aggregates these per-account; when account engagement_score >= 60 a CP4 SalesHandoffNote is created.",
+  "type": "object",
+  "required": [
+    "event_id",
+    "client_id",
+    "account_domain",
+    "contact_id",
+    "channel",
+    "event_type",
+    "score_delta",
+    "occurred_at",
+    "provider",
+    "provider_event_id",
+    "raw_payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "client_id": {"type": "string", "format": "uuid"},
+    "account_domain": {"type": "string", "minLength": 1},
+    "contact_id": {"type": ["string", "null"], "format": "uuid"},
+    "channel": {"type": "string", "enum": ["EMAIL", "LINKEDIN_DM", "LINKEDIN_CONNECTION", "WHATSAPP"]},
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "EMAIL_OPEN", "EMAIL_REPLY", "EMAIL_BOUNCE", "EMAIL_UNSUBSCRIBE",
+        "LINKEDIN_DM_REPLY", "LINKEDIN_CONNECTION_ACCEPTED",
+        "WHATSAPP_REPLY",
+        "MEETING_BOOKED",
+        "REPLY_NEGATIVE"
+      ]
+    },
+    "score_delta": {"type": "integer"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "provider": {"type": "string", "enum": ["INSTANTLY", "PHANTOMBUSTER", "TWILIO", "CALCOM", "INTERNAL"]},
+    "provider_event_id": {"type": "string", "minLength": 1, "description": "Provider's stable event ID — used for idempotent webhook replay."},
+    "raw_payload": {"type": "object"}
+  }
+}

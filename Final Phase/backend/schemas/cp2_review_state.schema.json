@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/cp2_review_state.schema.json",
+  "title": "CP2ReviewState",
+  "description": "Human-in-the-loop review state for Checkpoint 2. Phase 4 (Storyteller) is hard-blocked until status=APPROVED. Schema invariants: status=APPROVED requires all inferred_claims_review entries non-PENDING and all account_approvals non-PENDING.",
+  "type": "object",
+  "required": [
+    "client_id",
+    "status",
+    "opened_at",
+    "approved_at",
+    "reviewer",
+    "reviewer_notes",
+    "inferred_claims_review",
+    "account_approvals",
+    "aggregate_progress",
+    "blockers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["NOT_STARTED", "IN_REVIEW", "APPROVED", "REJECTED"]
+    },
+    "opened_at": {
+      "anyOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
+    "approved_at": {
+      "anyOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "Operator email or identifier"
+    },
+    "reviewer_notes": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "null"}
+      ]
+    },
+    "inferred_claims_review": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/InferredClaimReview"}
+    },
+    "account_approvals": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/AccountApproval"}
+    },
+    "aggregate_progress": {
+      "type": "object",
+      "required": [
+        "total_inferred_claims",
+        "reviewed_claims",
+        "approved_claims",
+        "corrected_claims",
+        "removed_claims",
+        "total_accounts",
+        "approved_accounts",
+        "removed_accounts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_inferred_claims": {"type": "integer", "minimum": 0},
+        "reviewed_claims": {"type": "integer", "minimum": 0},
+        "approved_claims": {"type": "integer", "minimum": 0},
+        "corrected_claims": {"type": "integer", "minimum": 0},
+        "removed_claims": {"type": "integer", "minimum": 0},
+        "total_accounts": {"type": "integer", "minimum": 0},
+        "approved_accounts": {"type": "integer", "minimum": 0},
+        "removed_accounts": {"type": "integer", "minimum": 0}
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "description": "Server-computed reasons CP2 cannot be approved. Auto-populated on every state mutation.",
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["UNREVIEWED_CLAIMS", "UNAPPROVED_ACCOUNTS", "MISSING_REVIEWER"]
+          },
+          "message": {"type": "string"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "InferredClaimReview": {
+      "type": "object",
+      "required": [
+        "claim_id",
+        "source_type",
+        "account_domain",
+        "contact_id",
+        "claim_text",
+        "evidence_status",
+        "reasoning",
+        "review_decision",
+        "corrected_text",
+        "review_notes",
+        "reviewed_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {"type": "string", "format": "uuid"},
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "BUYER_PAIN_POINT",
+            "INTEL_REPORT_PRIORITY",
+            "INTEL_REPORT_COMPETITOR",
+            "INTEL_REPORT_PAIN",
+            "INTEL_REPORT_OTHER"
+          ]
+        },
+        "account_domain": {"type": "string"},
+        "contact_id": {
+          "anyOf": [
+            {"type": "string", "format": "uuid"},
+            {"type": "null"}
+          ],
+          "description": "Only set when source_type=BUYER_PAIN_POINT"
+        },
+        "claim_text": {"type": "string", "minLength": 1},
+        "evidence_status": {
+          "type": "string",
+          "enum": ["INFERRED"],
+          "description": "Always INFERRED for review queue — verified claims do not need CP2 review"
+        },
+        "reasoning": {"type": "string"},
+        "review_decision": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "CORRECTED", "REMOVED"]
+        },
+        "corrected_text": {
+          "anyOf": [
+            {"type": "string", "minLength": 1},
+            {"type": "null"}
+          ],
+          "description": "Required when review_decision=CORRECTED, must be null otherwise"
+        },
+        "review_notes": {
+          "anyOf": [
+            {"type": "string"},
+            {"type": "null"}
+          ]
+        },
+        "reviewed_at": {
+          "anyOf": [
+            {"type": "string", "format": "date-time"},
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "AccountApproval": {
+      "type": "object",
+      "required": [
+        "account_domain",
+        "buyer_profiles_approved",
+        "intel_report_approved",
+        "account_decision",
+        "account_notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "account_domain": {"type": "string"},
+        "buyer_profiles_approved": {"type": "boolean"},
+        "intel_report_approved": {
+          "anyOf": [
+            {"type": "boolean"},
+            {"type": "null"}
+          ],
+          "description": "null for non-Tier-1 accounts (no intel report exists)"
+        },
+        "account_decision": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "NEEDS_REVISION", "REMOVED_FROM_PIPELINE"]
+        },
+        "account_notes": {
+          "anyOf": [
+            {"type": "string"},
+            {"type": "null"}
+          ]
+        }
+      }
+    }
+  }
+}

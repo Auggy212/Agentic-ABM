@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/sales_handoff_note.schema.json",
+  "title": "SalesHandoffNote",
+  "description": "Checkpoint 4 (CP4) — Sales Exec acceptance of a warmed lead. Created by the Phase 5 Campaign agent when an account's engagement_score crosses the >=60 threshold (Phase 4->5 handoff doc). The Sales Exec must ACCEPT or REJECT within 24h of notify_sent_at; otherwise the handoff auto-escalates to the Operator. Idempotency rule: notifying twice for the same handoff is a no-op (notify_sent_at is only written once).",
+  "type": "object",
+  "required": [
+    "handoff_id",
+    "client_id",
+    "account_domain",
+    "contact_id",
+    "tldr_text",
+    "engagement_score",
+    "triggering_events",
+    "status",
+    "created_at",
+    "notify_sent_at",
+    "accepted_at",
+    "accepted_by",
+    "escalated_at",
+    "escalation_reason",
+    "rejected_at",
+    "rejection_reason"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "handoff_id": {"type": "string", "format": "uuid", "description": "Stable identifier for this handoff."},
+    "client_id": {"type": "string", "format": "uuid", "description": "Owning ABM client."},
+    "account_domain": {"type": "string", "minLength": 1, "description": "Account this handoff is for."},
+    "contact_id": {"type": "string", "format": "uuid", "description": "Primary contact whose engagement crossed the threshold."},
+    "tldr_text": {"type": "string", "minLength": 1, "description": "Sales-Exec-ready summary (Phase 5 handoff_generator output, claude-haiku in the live build)."},
+    "engagement_score": {"type": "integer", "minimum": 0, "description": "Account engagement score at handoff creation."},
+    "triggering_events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["event_type", "occurred_at", "score_delta"],
+        "additionalProperties": false,
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "enum": ["EMAIL_REPLY", "LINKEDIN_DM_REPLY", "WHATSAPP_REPLY", "MEETING_BOOKED"]
+          },
+          "occurred_at": {"type": "string", "format": "date-time"},
+          "score_delta": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PENDING", "ACCEPTED", "REJECTED", "ESCALATED"],
+      "description": "PENDING after creation; ACCEPTED/REJECTED by Sales Exec; ESCALATED if 24h SLA missed."
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "notify_sent_at": {"type": ["string", "null"], "format": "date-time", "description": "When Sales Exec was first notified. Set once and never updated (idempotency)."},
+    "accepted_at": {"type": ["string", "null"], "format": "date-time"},
+    "accepted_by": {"type": ["string", "null"], "minLength": 1},
+    "escalated_at": {"type": ["string", "null"], "format": "date-time"},
+    "escalation_reason": {"type": ["string", "null"]},
+    "rejected_at": {"type": ["string", "null"], "format": "date-time"},
+    "rejection_reason": {"type": ["string", "null"]}
+  }
+}

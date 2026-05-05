@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/signal_intelligence.schema.json",
+  "title": "SignalIntelligence",
+  "description": "Per-account signals, buying stage, and (Tier 1 only) intel report. Top-level object is a map keyed by apex domain.",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/$defs/SignalReport"
+  },
+  "$defs": {
+    "SignalReport": {
+      "type": "object",
+      "required": [
+        "account_domain",
+        "tier",
+        "signals",
+        "signal_score",
+        "buying_stage",
+        "buying_stage_method",
+        "buying_stage_reasoning",
+        "recommended_outreach_approach"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "account_domain": {
+          "type": "string",
+          "description": "Apex domain — FK to icp_account.domain"
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["TIER_1", "TIER_2", "TIER_3"],
+          "description": "Copied from the parent ICPAccount tier"
+        },
+        "signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AccountSignal" }
+        },
+        "signal_score": {
+          "$ref": "#/$defs/SignalScore"
+        },
+        "buying_stage": {
+          "type": "string",
+          "enum": ["UNAWARE", "PROBLEM_AWARE", "SOLUTION_AWARE", "EVALUATING", "READY_TO_BUY"],
+          "description": "Buying stage classification for this account"
+        },
+        "buying_stage_method": {
+          "type": "string",
+          "enum": ["RULES", "LLM_TIEBREAKER"],
+          "description": "Which classifier path produced the buying_stage. Allows CP2 audit of RULES vs LLM decisions."
+        },
+        "buying_stage_reasoning": {
+          "type": "string",
+          "description": "Short human-readable explanation of the classification. Mandatory when buying_stage_method=LLM_TIEBREAKER."
+        },
+        "recommended_outreach_approach": {
+          "type": "string",
+          "description": "Outreach angle mapped from the buying-stage table in the Process Note"
+        },
+        "intel_report": {
+          "oneOf": [
+            { "$ref": "#/$defs/IntelReport" },
+            { "type": "null" }
+          ],
+          "description": "Deep intel report. Populated only when tier=TIER_1. Must be null for TIER_2 and TIER_3."
+        }
+      }
+    },
+    "AccountSignal": {
+      "type": "object",
+      "required": [
+        "signal_id",
+        "type",
+        "intent_level",
+        "description",
+        "source",
+        "source_url",
+        "detected_at",
+        "evidence_snippet"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "signal_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "COMPETITOR_REVIEW",
+            "RELEVANT_HIRE",
+            "FUNDING",
+            "LEADERSHIP_HIRE",
+            "EXPANSION",
+            "EXEC_CONTENT",
+            "WEBINAR_ATTENDED",
+            "COMPETITOR_ENGAGEMENT",
+            "LEADERSHIP_CHANGE",
+            "ICP_MATCH_NO_SIGNAL",
+            "INDUSTRY_EVENT",
+            "COMPETITOR_FOLLOW"
+          ]
+        },
+        "intent_level": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["LINKEDIN_JOBS", "GOOGLE_NEWS", "G2", "CRUNCHBASE", "REDDIT"]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "detected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_snippet": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Verbatim excerpt or summary from the source, max 500 chars"
+        }
+      }
+    },
+    "SignalScore": {
+      "type": "object",
+      "required": ["high_count", "medium_count", "low_count", "total_score"],
+      "additionalProperties": false,
+      "properties": {
+        "high_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_score": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Weighted sum: HIGH=10, MEDIUM=4, LOW=1"
+        }
+      }
+    },
+    "IntelReport": {
+      "type": "object",
+      "required": [
+        "company_snapshot",
+        "strategic_priorities",
+        "tech_stack",
+        "competitive_landscape",
+        "inferred_pain_points",
+        "recent_news",
+        "buying_committee_summary",
+        "recommended_angle",
+        "generated_by",
+        "generated_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "company_snapshot": {
+          "type": "string",
+          "description": "Narrative paragraph. Every factual claim must be tagged [VERIFIED] or [INFERRED] inline."
+        },
+        "strategic_priorities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["priority", "evidence", "evidence_status", "source_url"],
+            "additionalProperties": false,
+            "properties": {
+              "priority": { "type": "string" },
+              "evidence": { "type": "string" },
+              "evidence_status": {
+                "type": "string",
+                "enum": ["VERIFIED", "INFERRED"]
+              },
+              "source_url": {
+                "oneOf": [
+                  { "type": "string", "format": "uri" },
+                  { "type": "string", "const": "not_found" }
+                ]
+              }
+            }
+          }
+        },
+        "tech_stack": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Detected technology stack items"
+        },
+        "competitive_landscape": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["competitor_name", "evidence", "evidence_status", "source_url"],
+            "additionalProperties": false,
+            "properties": {
+              "competitor_name": { "type": "string" },
+              "evidence": { "type": "string" },
+              "evidence_status": {
+                "type": "string",
+                "enum": ["VERIFIED", "INFERRED"]
+              },
+              "source_url": {
+                "oneOf": [
+                  { "type": "string", "format": "uri" },
+                  { "type": "string", "const": "not_found" }
+                ]
+              }
+            }
+          }
+        },
+        "inferred_pain_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pain_point", "evidence_status", "reasoning"],
+            "additionalProperties": false,
+            "properties": {
+              "pain_point": { "type": "string" },
+              "evidence_status": {
+                "type": "string",
+                "const": "INFERRED",
+                "description": "Always INFERRED — pain points are never directly stated by the company"
+              },
+              "reasoning": { "type": "string" }
+            }
+          }
+        },
+        "recent_news": {
+          "type": "array",
+          "maxItems": 3,
+          "description": "Top 3 recent news items only",
+          "items": {
+            "type": "object",
+            "required": ["headline", "date", "source_url", "summary"],
+            "additionalProperties": false,
+            "properties": {
+              "headline": { "type": "string" },
+              "date": { "type": "string", "format": "date" },
+              "source_url": { "type": "string", "format": "uri" },
+              "summary": { "type": "string" }
+            }
+          }
+        },
+        "buying_committee_summary": {
+          "type": "string",
+          "description": "Narrative summary pulled from buyer_intel_package contacts"
+        },
+        "recommended_angle": {
+          "type": "string",
+          "description": "Single best outreach entry point for this account"
+        },
+        "generated_by": {
+          "type": "object",
+          "required": ["researcher", "synthesizer"],
+          "additionalProperties": false,
+          "properties": {
+            "researcher": {
+              "type": "string",
+              "description": "Tool or model that gathered raw data, e.g. 'perplexity'"
+            },
+            "synthesizer": {
+              "type": "string",
+              "description": "Model that synthesized the report, e.g. 'claude-sonnet-4'"
+            }
+          }
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
