@@ -51,7 +51,7 @@ React + TypeScript + Vite frontend for the Agentic Account-Based Marketing Engin
 | `/checkpoint2` | CP2ReviewPage | Phase 2 | Manual review & approval |
 | `/checkpoint3` | CP3OperatorPage | Phase 3 | Message review & client feedback |
 | `/client-review` | ClientReviewPage | Phase 4 | Client/buyer approval portal |
-| `/campaign` | CampaignPage | Phase 5 | Outbound execution tracking |
+| `/campaigns` | CampaignDashboardPage | Phase 5 | Outbound execution tracking, halts, sends, quotas, engagement feed |
 | `/storyteller` | StorytellerPage | Phase 4 | Narrative generation & templates |
 
 ## Components
@@ -78,6 +78,7 @@ Development uses MSW to mock API calls without hitting the backend:
 - `src/mocks/handlers.ts` — Route handlers
 - `src/mocks/cp3.ts` — CP3-specific fixtures
 - `src/mocks/client_review.ts` — Client review fixtures
+- `src/mocks/campaign.ts` - Campaign run, send, halt, quota, and engagement fixtures
 
 To switch to real API, comment out MSW in `src/main.tsx`.
 

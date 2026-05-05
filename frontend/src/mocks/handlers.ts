@@ -6,6 +6,21 @@ import {
   listMockAccounts,
   removeMockAccount,
 } from "./accounts";
+import {
+  getMockBuyersByClient,
+  getMockBuyersByDomain,
+  getMockQuotaStatus as getMockBuyerQuotaStatus,
+  updateMockContact,
+} from "./buyers";
+import {
+  getMockSignalsByClient,
+  getMockSignalsByDomain,
+} from "./signals";
+import {
+  getMockVerificationByContact,
+  getMockVerificationPackage,
+  recheckMockContact,
+} from "./verification";
 import { mockAgents } from "./agents";
 import { mockSequences } from "./sequences";
 import { mockCopilotContext } from "./copilot";
@@ -25,6 +40,30 @@ import {
   getMockClientReview,
   submitMockClientFeedback,
 } from "./client_review";
+import {
+  acceptMockSalesHandoff,
+  getMockSalesHandoff,
+  rejectMockSalesHandoff,
+} from "./salesHandoff";
+import {
+  acceptMockCP4Handoff,
+  escalateOverdueMockCP4,
+  getMockCP4Handoff,
+  getMockCP4Queue,
+  notifyMockCP4Handoff,
+  rejectMockCP4Handoff,
+} from "./cp4";
+import {
+  getMockActiveHalts,
+  getMockCampaignRun,
+  getMockCampaignRuns,
+  getMockEngagementFeed,
+  getMockOutboundSends,
+  getMockQuotaStatus,
+  operatorHaltMock,
+  resumeMock,
+  triggerMockRun,
+} from "./campaign";
 
 // Toggle: call window.__MSW_CLARIFY() in devtools to simulate needs_clarification once
 let _clarifyOnce = false;
@@ -105,6 +144,109 @@ export const handlers = [
     return HttpResponse.json(approveMockCheckpoint());
   }),
 
+  // ── Buyers ───────────────────────────────────────────────────────────────
+  http.get("/api/buyers", async ({ request }) => {
+    await delay(180);
+    const url = new URL(request.url);
+    const company = url.searchParams.get("company");
+    const clientId = url.searchParams.get("client_id");
+    if (company) {
+      const result = getMockBuyersByDomain(company);
+      if (!result) return HttpResponse.json({ detail: "No buyers found" }, { status: 404 });
+      return HttpResponse.json(result);
+    }
+    if (clientId) {
+      const result = getMockBuyersByClient(clientId);
+      if (!result) return HttpResponse.json({ detail: "No buyers found" }, { status: 404 });
+      return HttpResponse.json(result);
+    }
+    return HttpResponse.json({ detail: "Provide either client_id or company" }, { status: 400 });
+  }),
+
+  http.patch("/api/buyers/contact/:contactId", async ({ params, request }) => {
+    await delay(120);
+    const body = await request.json() as Record<string, unknown>;
+    const result = updateMockContact(String(params.contactId), body);
+    if (!result) return HttpResponse.json({ detail: "Contact not found" }, { status: 404 });
+    return HttpResponse.json({
+      contact_id: result.contact_id,
+      updated_fields: Object.keys(body),
+      edited_at: new Date().toISOString(),
+      note: typeof body.note === "string" ? body.note : null,
+    });
+  }),
+
+  http.post("/api/buyers/discover", async ({ request }) => {
+    await delay(180);
+    const body = await request.json() as { client_id?: string };
+    return HttpResponse.json({
+      job_id: `job-buyers-${Date.now()}`,
+      status: "queued",
+      message: `Buyer enrichment queued for client_id=${body.client_id ?? "unknown"}.`,
+    }, { status: 202 });
+  }),
+
+  // ── Signals ──────────────────────────────────────────────────────────────
+  http.get("/api/signals", async ({ request }) => {
+    await delay(160);
+    const url = new URL(request.url);
+    const company = url.searchParams.get("company");
+    const clientId = url.searchParams.get("client_id");
+    if (company) {
+      const result = getMockSignalsByDomain(company);
+      if (!result) return HttpResponse.json({ detail: "No signal report found" }, { status: 404 });
+      return HttpResponse.json(result);
+    }
+    if (clientId) {
+      const result = getMockSignalsByClient(clientId);
+      if (!result) return HttpResponse.json({ detail: "No signal reports found" }, { status: 404 });
+      return HttpResponse.json(result);
+    }
+    return HttpResponse.json({ detail: "Provide either client_id or company" }, { status: 400 });
+  }),
+
+  http.post("/api/signals/discover", async ({ request }) => {
+    await delay(180);
+    const body = await request.json() as { client_id?: string };
+    return HttpResponse.json({
+      job_id: `job-signals-${Date.now()}`,
+      status: "queued",
+      message: `Signal discovery queued for client_id=${body.client_id ?? "unknown"}.`,
+    }, { status: 202 });
+  }),
+
+  http.post("/api/signals/:domain/regenerate-intel", async ({ params }) => {
+    await delay(180);
+    return HttpResponse.json({
+      job_id: `job-intel-${Date.now()}`,
+      status: "queued",
+      message: `Intel regeneration queued for domain=${String(params.domain)}.`,
+    }, { status: 202 });
+  }),
+
+  // ── Verification ─────────────────────────────────────────────────────────
+  http.get("/api/verify", async ({ request }) => {
+    await delay(160);
+    const url = new URL(request.url);
+    const result = getMockVerificationPackage(url.searchParams.get("client_id"));
+    if (!result) return HttpResponse.json({ detail: "No verification package found" }, { status: 404 });
+    return HttpResponse.json(result);
+  }),
+
+  http.get("/api/verify/contact/:contactId", async ({ params }) => {
+    await delay(120);
+    const result = getMockVerificationByContact(String(params.contactId));
+    if (!result) return HttpResponse.json({ detail: "No verification found" }, { status: 404 });
+    return HttpResponse.json(result);
+  }),
+
+  http.post("/api/verify/contact/:contactId/recheck", async ({ params }) => {
+    await delay(120);
+    const result = recheckMockContact(String(params.contactId));
+    if (!result) return HttpResponse.json({ detail: "Contact not found" }, { status: 404 });
+    return HttpResponse.json(result);
+  }),
+
   // ── Agents ────────────────────────────────────────────────────────────────
   http.get("/api/agents", async () => {
     await delay(200);
@@ -171,11 +313,7 @@ export const handlers = [
   http.get("/api/quota/status", async () => {
     await delay(120);
     return HttpResponse.json({
-      APOLLO_CONTACTS: { used: 48, limit: 50 },
-      HUNTER: { used: 100, limit: 100 },
-      LUSHA: { used: 42, limit: 100 },
-      NEVERBOUNCE: { used: 250, limit: 1000 },
-      ZEROBOUNCE: { used: 38, limit: 100 },
+      ...getMockBuyerQuotaStatus(),
       ANTHROPIC_CLAUDE: { used: 14.2, limit: 50 },
       OPENAI_GPT_4O_MINI: { used: 1.85, limit: 20 },
     });
@@ -250,6 +388,136 @@ export const handlers = [
     await delay(160);
     const body = await request.json() as { signature_name: string };
     return HttpResponse.json(approveMockClientReview(body.signature_name));
+  }),
+
+  // ── Campaign (internal Operator dashboard) ───────────────────────────────
+  http.get("/api/campaign/runs", async () => {
+    await delay(120);
+    return HttpResponse.json(getMockCampaignRuns());
+  }),
+
+  http.get("/api/campaign/runs/:runId", async ({ params }) => {
+    await delay(100);
+    const run = getMockCampaignRun(String(params.runId));
+    if (!run) return HttpResponse.json({ detail: "run not found" }, { status: 404 });
+    return HttpResponse.json(run);
+  }),
+
+  http.get("/api/campaign/sends", async () => {
+    await delay(140);
+    return HttpResponse.json({ sends: getMockOutboundSends() });
+  }),
+
+  http.get("/api/campaign/engagement-feed", async () => {
+    await delay(120);
+    return HttpResponse.json({ events: getMockEngagementFeed() });
+  }),
+
+  http.get("/api/campaign/halts", async () => {
+    await delay(80);
+    return HttpResponse.json({ halts: getMockActiveHalts() });
+  }),
+
+  http.get("/api/campaign/quota-status", async () => {
+    await delay(120);
+    return HttpResponse.json(getMockQuotaStatus());
+  }),
+
+  http.post("/api/campaign/run", async () => {
+    await delay(160);
+    const result = triggerMockRun();
+    if ("detail" in result) return HttpResponse.json(result, { status: 423 });
+    return HttpResponse.json(result, { status: 202 });
+  }),
+
+  http.post("/api/campaign/halt", async ({ request }) => {
+    await delay(140);
+    const body = await request.json() as { detail: string; triggered_by: string };
+    return HttpResponse.json(operatorHaltMock(body.detail, body.triggered_by));
+  }),
+
+  http.post("/api/campaign/resume", async ({ request }) => {
+    await delay(140);
+    const body = await request.json() as { halt_id: string; confirmation: string; resumed_by: string };
+    const result = resumeMock(body.halt_id, body.confirmation, body.resumed_by);
+    if ("status" in result) return HttpResponse.json({ detail: result.detail }, { status: result.status });
+    return HttpResponse.json(result);
+  }),
+
+  // ── Checkpoint 4 (internal Operator queue) ───────────────────────────────
+  http.get("/api/checkpoint-4", async ({ request }) => {
+    await delay(140);
+    const url = new URL(request.url);
+    const clientId = url.searchParams.get("client_id") || "";
+    return HttpResponse.json(getMockCP4Queue(clientId));
+  }),
+
+  http.get("/api/checkpoint-4/:handoffId", async ({ params }) => {
+    await delay(120);
+    const handoff = getMockCP4Handoff(String(params.handoffId));
+    if (!handoff) return HttpResponse.json({ detail: "Handoff not found" }, { status: 404 });
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/checkpoint-4/:handoffId/notify", async ({ params }) => {
+    await delay(120);
+    const handoff = notifyMockCP4Handoff(String(params.handoffId));
+    if (!handoff) return HttpResponse.json({ detail: "Handoff not found" }, { status: 404 });
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/checkpoint-4/:handoffId/accept", async ({ params, request }) => {
+    await delay(140);
+    const body = await request.json() as { accepted_by: string };
+    const handoff = acceptMockCP4Handoff(String(params.handoffId), body.accepted_by);
+    if (!handoff) return HttpResponse.json({ detail: "Handoff not found" }, { status: 404 });
+    if (handoff.status !== "ACCEPTED") return HttpResponse.json({ detail: `Cannot accept: status=${handoff.status}` }, { status: 409 });
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/checkpoint-4/:handoffId/reject", async ({ params, request }) => {
+    await delay(140);
+    const body = await request.json() as { rejection_reason: string; rejected_by: string };
+    const handoff = rejectMockCP4Handoff(String(params.handoffId), body.rejection_reason);
+    if (!handoff) return HttpResponse.json({ detail: "Handoff not found" }, { status: 404 });
+    if (handoff.status !== "REJECTED") return HttpResponse.json({ detail: `Cannot reject: status=${handoff.status}` }, { status: 409 });
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/checkpoint-4/escalate-overdue", async () => {
+    await delay(180);
+    const escalated = escalateOverdueMockCP4();
+    return HttpResponse.json({ escalated_count: escalated.length, handoffs: escalated });
+  }),
+
+  // ── Sales Handoff (external Sales Exec, token-gated) ─────────────────────
+  http.get("/api/sales/handoff/:token", async ({ params }) => {
+    await delay(140);
+    const handoff = getMockSalesHandoff(String(params.token));
+    if (!handoff) return HttpResponse.json({ detail: "Handoff link expired or invalid" }, { status: 404 });
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/sales/handoff/:token/accept", async ({ params, request }) => {
+    await delay(140);
+    const body = await request.json() as { accepted_by: string };
+    const handoff = acceptMockSalesHandoff(String(params.token), body.accepted_by);
+    if (!handoff) return HttpResponse.json({ detail: "Handoff link expired or invalid" }, { status: 404 });
+    if (handoff.status !== "ACCEPTED") {
+      return HttpResponse.json({ detail: `Handoff already ${handoff.status.toLowerCase()}` }, { status: 409 });
+    }
+    return HttpResponse.json(handoff);
+  }),
+
+  http.post("/api/sales/handoff/:token/reject", async ({ params, request }) => {
+    await delay(140);
+    const body = await request.json() as { rejection_reason: string };
+    const handoff = rejectMockSalesHandoff(String(params.token), body.rejection_reason);
+    if (!handoff) return HttpResponse.json({ detail: "Handoff link expired or invalid" }, { status: 404 });
+    if (handoff.status !== "REJECTED") {
+      return HttpResponse.json({ detail: `Handoff already ${handoff.status.toLowerCase()}` }, { status: 409 });
+    }
+    return HttpResponse.json(handoff);
   }),
 
   http.get("/api/nav-counts", async () => {

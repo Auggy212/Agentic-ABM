@@ -56,10 +56,10 @@ function validateStep(step: number, formData: ReturnType<typeof useIntakeStore.g
 }
 
 const STEP_HEADLINES = [
-  <>Tell us about <em>your company</em>.</>,
-  <>Define your <em>ideal customer</em>.</>,
-  <>Who <em>champions</em> your deals?</>,
-  <>How do you <em>compete and reach</em> them?</>,
+  <>Company &amp; Product</>,
+  <>Ideal Customer Profile</>,
+  <>Buyers &amp; Stakeholders</>,
+  <>Competitive &amp; GTM</>,
 ];
 const STEP_SUBS = [
   "Just enough context for the agents to write outreach in your voice and pick relevant proof points.",
@@ -132,9 +132,7 @@ export default function IntakeForm() {
                 <span className="dot dot-good" />
                 Auto-saved {formatRelativeTime(lastSaved)}
               </>
-            ) : (
-              <><span className="dot dot-good" />saved · resume from any device</>
-            )}
+            ) : null}
           </span>
           <Btn variant="ghost" size="sm">Resume later</Btn>
         </div>
@@ -143,6 +141,14 @@ export default function IntakeForm() {
       {/* Body */}
       <div className="intake-shell">
         {/* Step pills */}
+        <div
+          role="progressbar"
+          aria-valuenow={step}
+          aria-valuemin={1}
+          aria-valuemax={STEPS.length}
+          aria-label="Intake progress"
+          style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+        />
         <div className="intake-progress">
           {STEPS.map((s) => {
             const state = s.id === step ? "active" : s.id < step ? "done" : "";
@@ -160,7 +166,7 @@ export default function IntakeForm() {
                   <div style={{ fontSize: 10, opacity: 0.6, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     Step {s.id}
                   </div>
-                  {s.short}
+                  {s.id < step ? "✓ " : ""}{s.title}
                 </span>
               </button>
             );
@@ -212,12 +218,14 @@ export default function IntakeForm() {
             </Btn>
           ) : (
             <Btn variant="primary" onClick={handleNext}>
-              Next: {STEPS[step].short} →
+              Next: {STEPS[step].title} →
             </Btn>
           )}
-          <span className="save-state">
-            <span className="dot dot-good" />saved · resume from any device
-          </span>
+          {lastSaved ? (
+            <span className="save-state">
+              <span className="dot dot-good" />Auto-saved {formatRelativeTime(lastSaved)}
+            </span>
+          ) : null}
         </div>
       </div>
 

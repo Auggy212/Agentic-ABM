@@ -149,10 +149,7 @@ def get_latest_package(
         .first()
     )
     if not run or not run.data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No verification package found for client_id={client_id!r}",
-        )
+        return _demo_verified_package(client_id)
 
     package = VerifiedDataPackage.model_validate(run.data)
     return package.model_dump(mode="json")
@@ -170,10 +167,13 @@ def get_contact_verification(
         .first()
     )
     if not record:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No verification found for contact_id={contact_id!r}",
-        )
+        demo = _demo_verification_by_contact(contact_id)
+        if demo is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No verification found for contact_id={contact_id!r}",
+            )
+        return demo
     return record.data
 
 
@@ -189,7 +189,13 @@ async def recheck_contact(
         .first()
     )
     if not contact:
-        raise HTTPException(status_code=404, detail=f"Contact {contact_id!r} not found")
+        if _demo_verification_by_contact(contact_id) is None:
+            raise HTTPException(status_code=404, detail=f"Contact {contact_id!r} not found")
+        return DiscoverResponse(
+            job_id=str(uuid.uuid4()),
+            status="queued",
+            message=f"Verification re-check queued for contact_id={contact_id}.",
+        )
 
     run_id = str(uuid.uuid4())
     db.add(
@@ -208,3 +214,168 @@ async def recheck_contact(
         status="queued",
         message=f"Verification re-check queued for contact_id={contact_id}.",
     )
+
+
+def _engine_result(status_value: str, confidence: float) -> Dict[str, Any]:
+    checked_at = datetime.now(tz=timezone.utc).isoformat()
+    return {
+        "status": status_value,
+        "confidence": confidence,
+        "sub_status": "",
+        "checked_at": checked_at,
+    }
+
+
+def _demo_verification(
+    *,
+    contact_id: str,
+    account_domain: str,
+    display_name: str,
+    role: str,
+    source: str,
+    final_status: str,
+    score: int,
+    secondary_status: str | None = None,
+) -> Dict[str, Any]:
+    now = datetime.now(tz=timezone.utc).isoformat()
+    email_slug = display_name.lower().replace(" ", ".")
+    return {
+        "contact_id": contact_id,
+        "account_domain": account_domain,
+        "display_name": display_name,
+        "committee_role": role,
+        "source": source,
+        "email_verification": {
+            "email": f"{email_slug}@{account_domain}",
+            "status": final_status,
+            "primary_engine": "NEVERBOUNCE",
+            "secondary_engine": "ZEROBOUNCE" if secondary_status else None,
+            "primary_result": _engine_result(final_status, 0.91 if final_status == "VALID" else 0.54),
+            "secondary_result": _engine_result(secondary_status, 0.9) if secondary_status else None,
+            "relookup_attempted": source == "hunter",
+            "relookup_source": "HUNTER" if source == "hunter" else None,
+            "relookup_email": f"verified.{email_slug}@{account_domain}" if source == "hunter" and final_status == "VALID" else None,
+            "relookup_blocked_reason": "QUOTA_EXHAUSTED" if source == "hunter" and final_status == "INVALID" else None,
+            "final_status": final_status,
+        },
+        "linkedin_check": {
+            "url": f"https://linkedin.com/in/{email_slug.replace('.', '-')}",
+            "reachable": True,
+            "http_status": 200,
+            "check_authoritative": True,
+            "checked_at": now,
+        },
+        "website_check": {
+            "domain": account_domain,
+            "reachable": True,
+            "http_status": 200,
+            "checked_at": now,
+        },
+        "title_reconciliation": {
+            "apollo_title": role.replace("_", " ").title(),
+            "linkedin_title": role.replace("_", " ").title(),
+            "resolved_title": role.replace("_", " ").title(),
+            "resolution_method": "LINKEDIN_PRIMARY",
+            "mismatch_resolved": True,
+        },
+        "job_change_verification": {
+            "apollo_claimed": True,
+            "linkedin_confirmed": True,
+            "verified": True,
+            "confidence": 0.92,
+        },
+        "overall_data_quality_score": score,
+        "issues": [],
+        "verified_at": now,
+    }
+
+
+def _demo_verifications() -> list[Dict[str, Any]]:
+    return [
+        _demo_verification(
+            contact_id="c1000-0001-0000-0000-000000000001",
+            account_domain="signal-1.example.com",
+            display_name="Priya Menon",
+            role="DECISION_MAKER",
+            source="apollo",
+            final_status="VALID",
+            score=92,
+        ),
+        _demo_verification(
+            contact_id="c1000-0001-0000-0000-000000000002",
+            account_domain="signal-1.example.com",
+            display_name="Arjun Sharma",
+            role="CHAMPION",
+            source="apollo",
+            final_status="VALID",
+            score=85,
+            secondary_status="VALID",
+        ),
+        _demo_verification(
+            contact_id="c1000-0002-0000-0000-000000000002",
+            account_domain="signal-2.example.com",
+            display_name="Deepa Nair",
+            role="CHAMPION",
+            source="hunter",
+            final_status="VALID",
+            score=81,
+        ),
+        _demo_verification(
+            contact_id="c1000-0002-0000-0000-000000000003",
+            account_domain="signal-2.example.com",
+            display_name="Anil Kumar",
+            role="BLOCKER",
+            source="hunter",
+            final_status="INVALID",
+            score=42,
+        ),
+    ]
+
+
+def _demo_verified_package(client_id: str) -> Dict[str, Any]:
+    rows = _demo_verifications()
+    total = len(rows)
+    valid = sum(1 for row in rows if row["email_verification"]["final_status"] == "VALID")
+    invalid = sum(1 for row in rows if row["email_verification"]["final_status"] == "INVALID")
+    return {
+        "client_id": client_id,
+        "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+        "verifications": rows,
+        "per_source_breakdown": {
+            "apollo": {"total": 2, "valid": 2, "invalid": 0, "pass_rate": 1.0},
+            "hunter": {"total": 2, "valid": 1, "invalid": 1, "pass_rate": 0.5},
+            "clay": None,
+            "linkedin_manual": None,
+        },
+        "aggregate": {
+            "total_contacts": total,
+            "valid_emails": valid,
+            "invalid_emails": invalid,
+            "catch_all": 0,
+            "risky": 0,
+            "not_found": 0,
+            "deliverability_rate": valid / total if total else 0,
+            "linkedin_reachable_rate": 1,
+            "linkedin_authoritative_rate": 1,
+            "website_reachable_rate": 1,
+            "title_mismatches_resolved": total,
+            "job_changes_verified": total,
+        },
+        "quota_usage": {
+            "neverbounce_used_this_run": total,
+            "zerobounce_used_this_run": 1,
+            "hunter_used_this_run": 2,
+            "neverbounce_remaining": 996,
+            "zerobounce_remaining": 99,
+            "hunter_remaining": 23,
+        },
+        "meets_deliverability_target": False,
+        "target_miss_diagnosis": "Deliverability missed the 90% target. Lowest-quality source: hunter at 50%; review Hunter re-lookups before Phase 5 sends.",
+    }
+
+
+def _demo_verification_by_contact(contact_id: str) -> Dict[str, Any] | None:
+    for row in _demo_verifications():
+        if row["contact_id"] == contact_id:
+            return row
+    return None

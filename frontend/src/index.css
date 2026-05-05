@@ -104,6 +104,7 @@ a { color: inherit; text-decoration: none; }
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   padding: 18px 12px; gap: 4px; overflow: hidden;
+  height: 100vh;
 }
 .nav-brand {
   display: flex; align-items: center; gap: 10px;
@@ -111,6 +112,7 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-display);
   font-size: 22px; letter-spacing: -0.01em;
   color: var(--text);
+  flex-shrink: 0;
 }
 .nav-brand-mark {
   width: 28px; height: 28px; border-radius: 7px;
@@ -118,6 +120,9 @@ a { color: inherit; text-decoration: none; }
   display: grid; place-items: center;
   font-family: var(--font-mono);
   font-size: 14px; font-weight: 600; letter-spacing: -0.04em;
+}
+.nav-scrollable {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
 }
 .nav-section {
   font-family: var(--font-mono); font-size: 10px;
@@ -139,10 +144,11 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px; color: var(--text-mute);
 }
 .nav-item[data-active="true"] .nav-item-count { color: inherit; opacity: 0.7; }
-.nav-foot {
+.nav-footer {
   margin-top: auto; padding: 12px 10px;
   border-top: 1px solid var(--border);
   display: flex; gap: 10px; align-items: center;
+  flex-shrink: 0;
 }
 .nav-avatar {
   width: 28px; height: 28px; border-radius: 50%;
@@ -152,6 +158,15 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-foot-text { line-height: 1.2; font-size: 12.5px; }
 .nav-foot-text > div:last-child { color: var(--text-3); font-size: 11.5px; }
+.nav-logout-btn {
+  margin-left: auto; padding: 6px 8px; border-radius: 6px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-2); transition: background 0.12s, color 0.12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-logout-btn:hover {
+  background: var(--ink-100); color: var(--text);
+}
 
 /* ============================================================
    Page chrome

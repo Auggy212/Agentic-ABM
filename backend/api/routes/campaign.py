@@ -18,7 +18,13 @@ from backend.agents.campaign.circuit_breaker import (
 )
 from backend.agents.campaign.quota_manager import DEFAULT_QUOTAS, QuotaManager
 from backend.agents.cp3.gate import CP3NotApprovedError
-from backend.db.models import CampaignHaltRecord, CampaignRunRecord, OutboundSendRecord
+from backend.db.models import (
+    CampaignHaltRecord,
+    CampaignRunRecord,
+    EngagementEventRecord,
+    OutboundSendRecord,
+    SalesHandoffRecord,
+)
 from backend.db.session import SessionLocal, get_db
 from backend.schemas.models import CampaignRunStatus, HaltReason, HaltScope
 
@@ -124,6 +130,44 @@ def list_runs(client_id: str = Query(...), db: Session = Depends(get_db)) -> Dic
     return {"runs": [_run_to_dict(r) for r in rows]}
 
 
+@router.get("/sends")
+def list_sends(
+    client_id: str = Query(...),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    rows = (
+        db.query(OutboundSendRecord)
+        .filter(OutboundSendRecord.client_id == client_id)
+        .order_by(OutboundSendRecord.attempted_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return {"sends": [_send_to_dict(r) for r in rows]}
+
+
+@router.get("/engagement-feed")
+def engagement_feed(
+    client_id: str = Query(...),
+    limit: int = Query(50, ge=1, le=250),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    rows = (
+        db.query(EngagementEventRecord)
+        .filter(EngagementEventRecord.client_id == client_id)
+        .order_by(EngagementEventRecord.occurred_at.desc())
+        .limit(limit)
+        .all()
+    )
+    handoff_domains = {
+        row.account_domain
+        for row in db.query(SalesHandoffRecord.account_domain)
+        .filter(SalesHandoffRecord.client_id == client_id)
+        .all()
+    }
+    return {"events": [_event_to_dict(r, triggered_handoff=r.account_domain in handoff_domains) for r in rows]}
+
+
 # ---------------------------------------------------------------------------
 # Halt + resume (operator + global). Master prompt §3: RESUME friction is
 # the safety mechanism — the body confirmation must equal exactly 'RESUME'.
@@ -226,6 +270,41 @@ def _run_to_dict(record: CampaignRunRecord) -> Dict[str, Any]:
         "halted": record.halted,
         "halt_reason": record.halt_reason,
         "quota_warnings": record.quota_warnings or [],
+    }
+
+
+def _send_to_dict(record: OutboundSendRecord) -> Dict[str, Any]:
+    return {
+        "send_id": record.id,
+        "run_id": record.run_id,
+        "client_id": record.client_id,
+        "message_id": record.message_id,
+        "account_domain": record.account_domain,
+        "contact_id": record.contact_id,
+        "channel": record.channel,
+        "transport": record.transport,
+        "status": record.status,
+        "provider_message_id": record.provider_message_id,
+        "error_code": record.error_code,
+        "error_message": record.error_message,
+        "attempted_at": record.attempted_at.isoformat() if record.attempted_at else None,
+        "completed_at": record.completed_at.isoformat() if record.completed_at else None,
+    }
+
+
+def _event_to_dict(record: EngagementEventRecord, *, triggered_handoff: bool) -> Dict[str, Any]:
+    return {
+        "event_id": record.id,
+        "client_id": record.client_id,
+        "account_domain": record.account_domain,
+        "contact_id": record.contact_id,
+        "channel": record.channel,
+        "event_type": record.event_type,
+        "score_delta": record.score_delta,
+        "occurred_at": record.occurred_at.isoformat() if record.occurred_at else None,
+        "provider": record.provider,
+        "provider_event_id": record.provider_event_id,
+        "triggered_handoff": triggered_handoff,
     }
 
 

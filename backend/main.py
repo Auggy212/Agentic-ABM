@@ -3,9 +3,33 @@ FastAPI application entry point for the ABM Engine backend.
 """
 
 from contextlib import asynccontextmanager
+import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
+def _load_backend_env() -> None:
+    """Load backend/.env into os.environ before any route imports a client.
+    Skips empty values so the literal `GROQ_API_KEY=` placeholder doesn't
+    overwrite a real value already set by the parent shell."""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip().strip('"').strip("'")
+        if not value:
+            continue
+        os.environ.setdefault(key.strip(), value)
+
+
+_load_backend_env()
+
 
 from backend.api.routes.accounts import router as accounts_router
 from backend.api.routes.agents import router as agents_router

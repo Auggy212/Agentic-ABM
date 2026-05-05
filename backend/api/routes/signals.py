@@ -188,7 +188,10 @@ def list_signals(
             .first()
         )
         if not record:
-            raise HTTPException(status_code=404, detail=f"No signal report found for domain={company!r}")
+            demo = _demo_signal_report(company)
+            if demo is None:
+                raise HTTPException(status_code=404, detail=f"No signal report found for domain={company!r}")
+            return demo
         return record.data
 
     # client_id path
@@ -198,9 +201,7 @@ def list_signals(
         .all()
     )
     if not records:
-        raise HTTPException(
-            status_code=404, detail=f"No signal reports found for client_id={client_id!r}"
-        )
+        return _demo_signal_reports()
 
     return {r.account_domain: r.data for r in records}
 
@@ -227,7 +228,13 @@ async def regenerate_intel(
         .first()
     )
     if not account_record:
-        raise HTTPException(status_code=404, detail=f"Account {domain!r} not found for client.")
+        if _demo_signal_report(domain) is None:
+            raise HTTPException(status_code=404, detail=f"Account {domain!r} not found for client.")
+        return {
+            "job_id": str(uuid.uuid4()),
+            "status": "queued",
+            "message": f"Demo intel regeneration queued for domain={domain}.",
+        }
 
     if account_record.tier != AccountTier.TIER_1.value:
         raise HTTPException(
@@ -252,3 +259,101 @@ async def regenerate_intel(
         "status": "queued",
         "message": f"Intel regeneration queued for domain={domain}.",
     }
+
+
+def _demo_signal(
+    suffix: str,
+    signal_type: str,
+    intent_level: str,
+    source: str,
+    description: str,
+    days_ago: int,
+) -> Dict[str, Any]:
+    detected = datetime.now(tz=timezone.utc)
+    detected = detected.replace(day=max(1, detected.day - min(days_ago, detected.day - 1)))
+    return {
+        "signal_id": f"sig-{suffix}",
+        "type": signal_type,
+        "intent_level": intent_level,
+        "description": description,
+        "source": source,
+        "source_url": f"https://example.com/signals/{suffix}",
+        "detected_at": detected.isoformat(),
+        "evidence_snippet": description,
+    }
+
+
+def _demo_signal_reports() -> Dict[str, Any]:
+    reports = {
+        "signal-1.example.com": {
+            "account_domain": "signal-1.example.com",
+            "tier": "TIER_1",
+            "signals": [
+                _demo_signal("1-funding", "FUNDING", "HIGH", "CRUNCHBASE", "Raised a $40M Series B and is expanding GTM capacity.", 10),
+                _demo_signal("1-hiring", "RELEVANT_HIRE", "HIGH", "LINKEDIN_JOBS", "Hiring a VP Revenue Operations role.", 4),
+                _demo_signal("1-news", "EXPANSION", "MEDIUM", "GOOGLE_NEWS", "Announced APAC expansion with new regional hires.", 18),
+            ],
+            "signal_score": {"high_count": 2, "medium_count": 1, "low_count": 0, "total_score": 26},
+            "buying_stage": "READY_TO_BUY",
+            "buying_stage_method": "RULES",
+            "buying_stage_reasoning": "Multiple high-intent buying signals were detected in the last 30 days.",
+            "recommended_outreach_approach": "Lead with the Series B growth mandate and offer a fast path to outbound pipeline lift.",
+            "intel_report": {
+                "company_snapshot": "[VERIFIED] Signal-1 Corp raised Series B funding and is scaling revenue operations.",
+                "strategic_priorities": [
+                    {
+                        "priority": "Scale outbound pipeline with better account prioritization",
+                        "evidence": "[VERIFIED] Hiring VP Revenue Operations.",
+                        "evidence_status": "VERIFIED",
+                        "source_url": "https://example.com/signals/1-hiring",
+                    }
+                ],
+                "tech_stack": ["Salesforce", "HubSpot", "Outreach"],
+                "competitive_landscape": [],
+                "inferred_pain_points": [
+                    {
+                        "pain_point": "Manual prospecting and inconsistent account prioritization",
+                        "evidence_status": "INFERRED",
+                        "reasoning": "Revenue operations hiring and GTM expansion usually increase data quality pressure.",
+                    }
+                ],
+                "recent_news": [],
+                "buying_committee_summary": "Revenue leadership and RevOps are likely to drive evaluation.",
+                "recommended_angle": "Connect ABM execution to the new revenue operations mandate.",
+                "generated_by": {"researcher": "mock", "synthesizer": "mock"},
+                "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            },
+        },
+        "signal-2.example.com": {
+            "account_domain": "signal-2.example.com",
+            "tier": "TIER_1",
+            "signals": [
+                _demo_signal("2-cro", "LEADERSHIP_HIRE", "HIGH", "LINKEDIN_JOBS", "New CRO role detected.", 7),
+                _demo_signal("2-sdr", "RELEVANT_HIRE", "MEDIUM", "LINKEDIN_JOBS", "Hiring SDRs for outbound team growth.", 12),
+            ],
+            "signal_score": {"high_count": 1, "medium_count": 1, "low_count": 0, "total_score": 14},
+            "buying_stage": "EVALUATING",
+            "buying_stage_method": "LLM_TIEBREAKER",
+            "buying_stage_reasoning": "Leadership change plus SDR hiring suggests active GTM tooling evaluation.",
+            "recommended_outreach_approach": "Offer a concrete benchmark and reference story for outbound scaling.",
+            "intel_report": None,
+        },
+        "signal-3.example.com": {
+            "account_domain": "signal-3.example.com",
+            "tier": "TIER_2",
+            "signals": [
+                _demo_signal("3-funding", "FUNDING", "HIGH", "CRUNCHBASE", "Recently raised Series A.", 21),
+            ],
+            "signal_score": {"high_count": 1, "medium_count": 0, "low_count": 0, "total_score": 10},
+            "buying_stage": "SOLUTION_AWARE",
+            "buying_stage_method": "RULES",
+            "buying_stage_reasoning": "One high-intent funding signal, but no active evaluation signal yet.",
+            "recommended_outreach_approach": "Educate around the operating cost of manual account selection.",
+            "intel_report": None,
+        },
+    }
+    return reports
+
+
+def _demo_signal_report(domain: str) -> Optional[Dict[str, Any]]:
+    return _demo_signal_reports().get(domain)

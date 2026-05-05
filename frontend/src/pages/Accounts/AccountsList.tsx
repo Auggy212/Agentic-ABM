@@ -146,7 +146,7 @@ export default function AccountsList({ scoreStyle = "bar" }: Props) {
       <div className="page-head">
         <div>
           <div className="page-head-meta">Human checkpoint 1 · Phase 2 locked</div>
-          <h1>ICP Scout · Account review</h1>
+          <h1>ICP Scout Account Review</h1>
         </div>
         <div className="page-head-actions">
           <Btn variant="ghost" icon="download" size="sm" onClick={() => downloadCsv(filtered)}>Export</Btn>
@@ -213,6 +213,15 @@ export default function AccountsList({ scoreStyle = "bar" }: Props) {
             <Btn variant="primary" size="sm">Approve all Tier 1</Btn>
           </div>
         )}
+        {meta?.quota_warnings?.length ? (
+          <div className="banner" data-tone="warn" style={{ marginBottom: 18 }}>
+            <div className="banner-icon"><Icon name="warn" size={18} /></div>
+            <div className="banner-body">
+              <div className="banner-title">Quota warning</div>
+              <div className="banner-text">{meta.quota_warnings.join(" ")}</div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Grid */}
         <div className="grid-wrap" style={{ position: "relative" }}>
@@ -239,6 +248,7 @@ export default function AccountsList({ scoreStyle = "bar" }: Props) {
               <div className="grid-search">
                 <Icon name="search" size={13} />
                 <input
+                  aria-label="Search"
                   value={filters.search}
                   onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
                   placeholder="Search company or domain"
@@ -254,7 +264,7 @@ export default function AccountsList({ scoreStyle = "bar" }: Props) {
                 disabled={selectedIds.length === 0}
                 onClick={() => openRemoveModal(filtered.filter((a) => selectedIds.includes(a.id)))}
               >
-                Remove ({selectedIds.length})
+                Remove selected ({selectedIds.length})
               </Btn>
             </div>
           </div>
@@ -291,7 +301,7 @@ export default function AccountsList({ scoreStyle = "bar" }: Props) {
                       onChange={(e) => setSelectedIds(e.target.checked ? filtered.map((a) => a.id) : [])}
                     />
                   </th>
-                  <Th label="Company" sortKey="company_name" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <Th label="Company Name" sortKey="company_name" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <Th label="ICP Score" sortKey="icp_score" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <th>Tier</th>
                   <Th label="Industry" sortKey="industry" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
