@@ -1,0 +1,3474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABM Engine — Complete Project Walkthrough</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  :root {
+    --primary: #667eea;
+    --secondary: #764ba2;
+    --accent: #f093fb;
+    --neon: #00f5ff;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --dark: #0a0e27;
+    --darker: #050817;
+    --text: #e0e6ff;
+    --muted: #8b95c9;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: var(--darker);
+    color: var(--text);
+    overflow-x: hidden;
+    line-height: 1.7;
+  }
+
+  /* ============ ANIMATED BACKGROUND ============ */
+  .bg-animation {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -2;
+    background: radial-gradient(ellipse at top, #1a1f3a 0%, #050817 50%);
+  }
+
+  .stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle linear infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    z-index: -1;
+    animation: float 20s infinite ease-in-out;
+    pointer-events: none;
+  }
+
+  .orb-1 { background: var(--primary); width: 400px; height: 400px; top: 10%; left: -100px; }
+  .orb-2 { background: var(--accent); width: 500px; height: 500px; top: 40%; right: -150px; animation-delay: -5s; }
+  .orb-3 { background: var(--neon); width: 350px; height: 350px; bottom: 10%; left: 30%; animation-delay: -10s; opacity: 0.15; }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(100px, -50px) scale(1.1); }
+    66% { transform: translate(-50px, 100px) scale(0.9); }
+  }
+
+  /* ============ NAV ============ */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 18px 50px;
+    background: rgba(10, 14, 39, 0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 22px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  /* Reading progress bar */
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent), var(--neon));
+    z-index: 9999;
+    transition: width 0.1s;
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 20px 60px;
+    position: relative;
+  }
+
+  .hero-content { max-width: 1100px; z-index: 2; }
+
+  .hero-emoji {
+    font-size: 100px;
+    margin-bottom: 20px;
+    animation: bounce 2s infinite;
+    display: inline-block;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+
+  .hero h1 {
+    font-size: clamp(45px, 8vw, 110px);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--neon) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% auto;
+    animation: shine 4s linear infinite;
+  }
+
+  @keyframes shine {
+    to { background-position: 200% center; }
+  }
+
+  .hero .tagline {
+    font-size: clamp(18px, 2.5vw, 26px);
+    color: var(--text);
+    margin-bottom: 25px;
+    font-weight: 600;
+  }
+
+  .hero .description {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 800px;
+    margin: 0 auto 40px;
+    line-height: 1.8;
+  }
+
+  .hero-callout {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 25px 30px;
+    border-radius: 16px;
+    max-width: 700px;
+    margin: 30px auto;
+    text-align: left;
+    backdrop-filter: blur(10px);
+  }
+
+  .hero-callout h3 {
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .hero-callout p {
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .hero-badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 30px;
+  }
+
+  .badge {
+    background: rgba(102, 126, 234, 0.15);
+    border: 1px solid rgba(102, 126, 234, 0.4);
+    padding: 8px 18px;
+    border-radius: 50px;
+    font-size: 13px;
+    color: var(--text);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+  }
+
+  .badge:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    border-color: var(--accent);
+  }
+
+  /* ============ READING GUIDE ============ */
+  .reading-guide {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.05));
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 24px;
+    padding: 35px 40px;
+    margin: 50px auto;
+    max-width: 900px;
+    text-align: left;
+  }
+
+  .reading-guide h3 {
+    font-size: 22px;
+    color: #fff;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .reading-guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+
+  .reading-guide-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 12px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .reading-guide-item strong {
+    color: var(--accent);
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+
+  .reading-guide-item span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--muted);
+    animation: bounce 2s infinite;
+    font-size: 14px;
+  }
+
+  .scroll-indicator::after {
+    content: '↓';
+    font-size: 26px;
+    display: block;
+    margin-top: 5px;
+  }
+
+  /* ============ SECTIONS ============ */
+  section {
+    padding: 100px 50px;
+    position: relative;
+  }
+
+  .container { max-width: 1300px; margin: 0 auto; }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .section-tag {
+    display: inline-block;
+    padding: 6px 18px;
+    background: rgba(240, 147, 251, 0.15);
+    border: 1px solid rgba(240, 147, 251, 0.4);
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: clamp(34px, 5vw, 60px);
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 15px;
+  }
+
+  .section-subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* Section intro explanation box */
+  .section-intro {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.04));
+    border-left: 4px solid var(--primary);
+    padding: 25px 30px;
+    border-radius: 0 16px 16px 0;
+    margin: 0 auto 50px;
+    max-width: 1000px;
+  }
+
+  .section-intro h4 {
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .section-intro p {
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* ============ REVEAL ANIMATIONS ============ */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: all 0.9s cubic-bezier(0.5, 0, 0, 1);
+  }
+
+  .reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ============ PROBLEM/SOLUTION ============ */
+  .problem-solution {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 40px;
+  }
+
+  .ps-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 35px;
+    border-radius: 24px;
+    transition: all 0.4s;
+  }
+
+  .ps-card.problem { border-color: rgba(248, 113, 113, 0.3); }
+  .ps-card.solution { border-color: rgba(74, 222, 128, 0.3); }
+
+  .ps-card.problem:hover { box-shadow: 0 20px 50px rgba(248, 113, 113, 0.2); transform: translateY(-5px); }
+  .ps-card.solution:hover { box-shadow: 0 20px 50px rgba(74, 222, 128, 0.2); transform: translateY(-5px); }
+
+  .ps-card .ps-icon {
+    width: 70px; height: 70px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 20px;
+  }
+
+  .ps-card.problem .ps-icon { background: rgba(248, 113, 113, 0.2); }
+  .ps-card.solution .ps-icon { background: rgba(74, 222, 128, 0.2); }
+
+  .ps-card h3 {
+    font-size: 26px;
+    margin-bottom: 15px;
+    color: #fff;
+  }
+
+  .ps-card.problem h3 { color: var(--danger); }
+  .ps-card.solution h3 { color: var(--success); }
+
+  .ps-card ul {
+    list-style: none;
+    margin-top: 15px;
+  }
+
+  .ps-card ul li {
+    padding: 12px 0;
+    padding-left: 35px;
+    position: relative;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .ps-card ul li:last-child { border-bottom: none; }
+
+  .ps-card ul li strong {
+    color: #fff;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .ps-card ul li small {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .ps-card.problem ul li::before {
+    content: '✗';
+    position: absolute;
+    left: 0; top: 12px;
+    width: 24px; height: 24px;
+    background: rgba(248, 113, 113, 0.2);
+    color: var(--danger);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .ps-card.solution ul li::before {
+    content: '✓';
+    position: absolute;
+    left: 0; top: 12px;
+    width: 24px; height: 24px;
+    background: rgba(74, 222, 128, 0.2);
+    color: var(--success);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* ============ STATS ============ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+    margin-top: 50px;
+  }
+
+  .stat-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px 20px;
+    border-radius: 20px;
+    text-align: center;
+    transition: all 0.4s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-10px) scale(1.05);
+    border-color: var(--accent);
+  }
+
+  .stat-number {
+    font-size: 56px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  .stat-label {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-card .stat-explain {
+    color: var(--text);
+    font-size: 12px;
+    margin-top: 8px;
+    opacity: 0.7;
+  }
+
+  /* ============ HOW IT WORKS (Numbered Steps) ============ */
+  .how-it-works {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    margin-top: 40px;
+  }
+
+  .hiw-step {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 30px;
+    align-items: start;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 20px;
+    padding: 30px;
+    transition: all 0.4s;
+    position: relative;
+  }
+
+  .hiw-step:hover {
+    border-color: var(--accent);
+    transform: translateX(10px);
+    box-shadow: -10px 10px 30px rgba(240, 147, 251, 0.15);
+  }
+
+  .hiw-number {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: 900;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+  }
+
+  .hiw-content h3 {
+    font-size: 24px;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  .hiw-content > p {
+    color: var(--text);
+    font-size: 15px;
+    margin-bottom: 15px;
+  }
+
+  .hiw-content .hiw-example {
+    background: rgba(0, 245, 255, 0.08);
+    border-left: 3px solid var(--neon);
+    padding: 15px 20px;
+    border-radius: 0 12px 12px 0;
+    margin-top: 15px;
+  }
+
+  .hiw-content .hiw-example strong {
+    color: var(--neon);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .hiw-content .hiw-example p {
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .hiw-content .hiw-tech {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .hiw-tag {
+    background: rgba(102, 126, 234, 0.2);
+    color: var(--primary);
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* ============ PHASE DETAILED CARDS ============ */
+  .phase-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+    margin-top: 40px;
+  }
+
+  .phase-detail {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 24px;
+    overflow: hidden;
+    transition: all 0.4s;
+  }
+
+  .phase-detail:hover {
+    border-color: var(--accent);
+    box-shadow: 0 20px 50px rgba(102, 126, 234, 0.2);
+  }
+
+  .phase-header {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(240, 147, 251, 0.1));
+    padding: 25px 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  }
+
+  .phase-header-icon {
+    width: 70px; height: 70px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  .phase-header-text { flex: 1; }
+
+  .phase-header-text .phase-num {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .phase-header-text h3 {
+    color: #fff;
+    font-size: 26px;
+    margin-top: 4px;
+  }
+
+  .phase-body {
+    padding: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+  }
+
+  .phase-body-section h5 {
+    color: var(--accent);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .phase-body-section p {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .phase-body-section ul {
+    list-style: none;
+  }
+
+  .phase-body-section ul li {
+    padding: 6px 0;
+    padding-left: 22px;
+    position: relative;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .phase-body-section ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+  }
+
+  .phase-example-box {
+    background: rgba(0, 245, 255, 0.05);
+    border: 1px dashed rgba(0, 245, 255, 0.3);
+    padding: 20px;
+    border-radius: 12px;
+    grid-column: 1 / -1;
+    margin-top: 10px;
+  }
+
+  .phase-example-box .label {
+    color: var(--neon);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .phase-example-box p {
+    color: var(--text);
+    font-size: 14px;
+    font-style: italic;
+    line-height: 1.7;
+  }
+
+  /* ============ TECH STACK ============ */
+  .tech-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+  }
+
+  .tech-cat {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 30px;
+    border-radius: 24px;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tech-cat:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+  }
+
+  .tech-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .tech-cat-icon {
+    width: 55px; height: 55px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+  }
+
+  .tech-cat h3 {
+    font-size: 22px;
+    color: #fff;
+  }
+
+  .tech-cat-explain {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+    font-style: italic;
+  }
+
+  .tech-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tech-item {
+    background: rgba(102, 126, 234, 0.15);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 13px;
+    color: var(--text);
+    transition: all 0.3s;
+    position: relative;
+    cursor: help;
+  }
+
+  .tech-item:hover {
+    background: rgba(240, 147, 251, 0.25);
+    border-color: var(--accent);
+    transform: scale(1.1);
+  }
+
+  .tech-item[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--dark);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-bottom: 8px;
+    border: 1px solid var(--accent);
+    z-index: 10;
+  }
+
+  /* ============ AGENT CARDS ============ */
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+  }
+
+  .agent-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 28px;
+    border-radius: 20px;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .agent-card::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(240, 147, 251, 0.2), transparent);
+    top: -100px; right: -100px;
+    border-radius: 50%;
+    transition: all 0.6s;
+  }
+
+  .agent-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(240, 147, 251, 0.2);
+  }
+
+  .agent-card:hover::after { transform: scale(1.5); }
+
+  .agent-card-top {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .agent-icon {
+    font-size: 40px;
+  }
+
+  .agent-card h4 {
+    font-size: 20px;
+    color: #fff;
+    margin-bottom: 3px;
+  }
+
+  .agent-role {
+    color: var(--accent);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+  }
+
+  .agent-card p {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .agent-detail-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .agent-detail-section strong {
+    color: var(--neon);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .agent-detail-section p {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  /* ============ ARCHITECTURE ============ */
+  .architecture-diagram {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 24px;
+    padding: 40px;
+    margin-top: 40px;
+  }
+
+  .arch-layer {
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px dashed rgba(102, 126, 234, 0.4);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 20px;
+    transition: all 0.4s;
+  }
+
+  .arch-layer:hover {
+    background: rgba(102, 126, 234, 0.15);
+  }
+
+  .arch-layer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .arch-layer-title {
+    font-size: 14px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+
+  .arch-layer-explain {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .arch-blocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .arch-block {
+    flex: 1;
+    min-width: 140px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(240, 147, 251, 0.1));
+    border: 1px solid rgba(102, 126, 234, 0.4);
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .arch-block:hover {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    transform: translateY(-5px);
+    color: #fff;
+  }
+
+  .arch-block-icon { font-size: 24px; margin-bottom: 6px; }
+  .arch-block-name { font-size: 13px; font-weight: 600; }
+
+  .arch-arrow {
+    text-align: center;
+    color: var(--primary);
+    font-size: 28px;
+    margin: 5px 0;
+    animation: pulse-arrow 2s infinite;
+  }
+
+  @keyframes pulse-arrow {
+    0%, 100% { opacity: 0.5; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(5px); }
+  }
+
+  /* ============ DATA FLOW EXAMPLE ============ */
+  .data-flow {
+    background: rgba(0, 245, 255, 0.04);
+    border: 1px solid rgba(0, 245, 255, 0.2);
+    border-radius: 20px;
+    padding: 30px;
+    margin-top: 40px;
+  }
+
+  .data-flow h3 {
+    color: var(--neon);
+    font-size: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .data-flow-steps {
+    display: flex;
+    align-items: stretch;
+    gap: 15px;
+    overflow-x: auto;
+    padding: 10px 0;
+  }
+
+  .df-step {
+    flex: 1;
+    min-width: 220px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 245, 255, 0.3);
+    padding: 18px;
+    border-radius: 14px;
+    position: relative;
+  }
+
+  .df-step .df-label {
+    color: var(--neon);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .df-step .df-content {
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 8px;
+    line-height: 1.5;
+  }
+
+  .df-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--neon);
+    font-size: 24px;
+  }
+
+  /* ============ CHECKPOINTS ============ */
+  .checkpoint-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-top: 40px;
+  }
+
+  .checkpoint-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    padding: 30px 25px 25px;
+    border-radius: 20px;
+    text-align: center;
+    transition: all 0.4s;
+    position: relative;
+  }
+
+  .checkpoint-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--accent);
+    box-shadow: 0 20px 50px rgba(240, 147, 251, 0.3);
+  }
+
+  .checkpoint-badge {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #fff;
+    padding: 6px 18px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .checkpoint-icon { font-size: 45px; margin: 15px 0 10px; }
+
+  .checkpoint-card h4 {
+    color: #fff;
+    font-size: 19px;
+    margin-bottom: 10px;
+  }
+
+  .checkpoint-card > p {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 15px;
+  }
+
+  .checkpoint-why {
+    background: rgba(0, 245, 255, 0.08);
+    border-left: 3px solid var(--neon);
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+    text-align: left;
+    margin-top: 12px;
+  }
+
+  .checkpoint-why strong {
+    color: var(--neon);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .checkpoint-why span {
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  /* ============ FEATURES ============ */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+  }
+
+  .feature-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px;
+    border-radius: 20px;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    transition: left 0.6s;
+  }
+
+  .feature-box:hover::before { left: 100%; }
+
+  .feature-box:hover {
+    transform: translateY(-10px);
+    border-color: var(--accent);
+    box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+  }
+
+  .feature-icon {
+    width: 60px; height: 60px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    margin-bottom: 18px;
+  }
+
+  .feature-box h3 {
+    color: #fff;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .feature-box > p {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .feature-tech-used {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .feature-tech-used span {
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--primary);
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* ============ FAQ ============ */
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 900px;
+    margin: 40px auto 0;
+  }
+
+  .faq-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.4s;
+  }
+
+  .faq-item:hover {
+    border-color: var(--accent);
+  }
+
+  .faq-question {
+    padding: 20px 25px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+
+  .faq-question:hover {
+    background: rgba(102, 126, 234, 0.08);
+  }
+
+  .faq-question::after {
+    content: '+';
+    color: var(--accent);
+    font-size: 28px;
+    transition: transform 0.3s;
+    font-weight: 300;
+  }
+
+  .faq-item.active .faq-question::after {
+    transform: rotate(45deg);
+  }
+
+  .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+    padding: 0 25px;
+  }
+
+  .faq-item.active .faq-answer {
+    max-height: 500px;
+    padding: 0 25px 20px;
+  }
+
+  .faq-answer p {
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .faq-answer ul {
+    color: var(--muted);
+    margin-top: 10px;
+    padding-left: 20px;
+  }
+
+  /* ============ GLOSSARY ============ */
+  .glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 40px;
+  }
+
+  .glossary-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--primary);
+    padding: 18px 20px;
+    border-radius: 0 12px 12px 0;
+    transition: all 0.3s;
+  }
+
+  .glossary-item:hover {
+    border-left-color: var(--accent);
+    background: rgba(102, 126, 234, 0.08);
+    transform: translateX(5px);
+  }
+
+  .glossary-term {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 5px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .glossary-def {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ============ API ENDPOINTS ============ */
+  .api-table {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 30px;
+  }
+
+  .api-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1.5fr;
+    gap: 20px;
+    padding: 18px 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    align-items: center;
+    transition: background 0.3s;
+  }
+
+  .api-row:hover { background: rgba(102, 126, 234, 0.05); }
+  .api-row:last-child { border-bottom: none; }
+
+  .api-method {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  .method-get { background: rgba(0, 245, 255, 0.2); color: var(--neon); }
+  .method-post { background: rgba(74, 222, 128, 0.2); color: var(--success); }
+
+  .api-path {
+    font-family: 'Courier New', monospace;
+    color: var(--accent);
+    font-size: 13px;
+  }
+
+  .api-desc {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* ============ IMPACT / OUTCOMES ============ */
+  .impact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-top: 40px;
+  }
+
+  .impact-card {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.08), rgba(102, 126, 234, 0.05));
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    transition: all 0.4s;
+  }
+
+  .impact-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--success);
+    box-shadow: 0 20px 40px rgba(74, 222, 128, 0.2);
+  }
+
+  .impact-icon {
+    font-size: 50px;
+    margin-bottom: 15px;
+  }
+
+  .impact-card h4 {
+    color: #fff;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .impact-card p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* ============ CODE BLOCK ============ */
+  .code-block {
+    background: #1a1f3a;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #b8c1ec;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+
+  .code-block .comment { color: #6b7299; }
+  .code-block .keyword { color: var(--accent); }
+  .code-block .string { color: var(--neon); }
+
+  /* ============ COVER PAGE ============ */
+  .cover-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px 60px;
+    position: relative;
+  }
+
+  .cover-inner {
+    max-width: 820px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .cover-logo {
+    font-size: 72px;
+    margin-bottom: 24px;
+    display: inline-block;
+    animation: bounce 2s infinite;
+  }
+
+  .cover-title {
+    font-size: clamp(42px, 7vw, 90px);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--neon) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% auto;
+    animation: shine 4s linear infinite;
+  }
+
+  .cover-subtitle {
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 50px;
+    font-weight: 500;
+  }
+
+  .cover-table {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 20px;
+    overflow: hidden;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .cover-table tr {
+    border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+    transition: background 0.3s;
+  }
+
+  .cover-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .cover-table tr:hover {
+    background: rgba(102, 126, 234, 0.08);
+  }
+
+  .cover-table td {
+    padding: 20px 30px;
+    text-align: left;
+    font-size: 15px;
+  }
+
+  .cover-table td:first-child {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    width: 200px;
+    border-right: 1px solid rgba(102, 126, 234, 0.15);
+  }
+
+  .cover-table td:last-child {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .cover-divider {
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 3px;
+    margin: 40px auto;
+  }
+
+  .cover-scroll-hint {
+    margin-top: 50px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: bounce 2s infinite;
+  }
+
+  .cover-scroll-hint::after {
+    content: '↓';
+    font-size: 22px;
+    display: block;
+    margin-top: 6px;
+  }
+
+  /* ============ FOOTER ============ */
+  footer {
+    padding: 80px 50px 40px;
+    background: linear-gradient(180deg, transparent, rgba(10, 14, 39, 0.8));
+    text-align: center;
+    border-top: 1px solid rgba(102, 126, 234, 0.2);
+    margin-top: 50px;
+  }
+
+  .footer-title {
+    font-size: 48px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--accent), var(--neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+  }
+
+  .footer-text {
+    color: var(--muted);
+    max-width: 700px;
+    margin: 0 auto 30px;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  .footer-info {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    flex-wrap: wrap;
+    margin-top: 30px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .footer-info span { padding: 5px 15px; border-right: 1px solid rgba(255,255,255,0.1); }
+  .footer-info span:last-child { border-right: none; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 768px) {
+    nav { padding: 15px 20px; flex-direction: column; gap: 10px; }
+    .nav-links { gap: 12px; font-size: 12px; }
+    section { padding: 60px 20px; }
+    .problem-solution { grid-template-columns: 1fr; }
+    .phase-body { grid-template-columns: 1fr; }
+    .hiw-step { grid-template-columns: 1fr; gap: 15px; }
+    .hiw-number { margin: 0 auto; }
+    .api-row { grid-template-columns: 1fr; gap: 8px; }
+  }
+
+  /* ============ TOOLTIP ============ */
+  [data-tooltip] {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dotted var(--accent);
+  }
+
+  [data-tooltip]:hover::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--dark);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-bottom: 8px;
+    border: 1px solid var(--accent);
+    z-index: 100;
+    box-shadow: 0 5px 20px rgba(240, 147, 251, 0.3);
+  }
+</style>
+</head>
+<body>
+
+<!-- READING PROGRESS BAR -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- BACKGROUND ANIMATIONS -->
+<div class="bg-animation"></div>
+<div class="stars" id="stars"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- NAVIGATION -->
+<nav>
+  <div class="logo">🎯 ABM Engine</div>
+  <ul class="nav-links">
+    <li><a href="#understand">What is ABM?</a></li>
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#solution">Solution</a></li>
+    <li><a href="#how">How it Works</a></li>
+    <li><a href="#phases">Phases</a></li>
+    <li><a href="#agents">Agents</a></li>
+    <li><a href="#tech">Tech</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+</nav>
+
+<!-- COVER PAGE -->
+<section class="cover-page" id="cover">
+  <div class="cover-inner">
+    <div class="cover-logo">🎯</div>
+    <h1 class="cover-title">ABM Engine</h1>
+    <p class="cover-subtitle">Agentic Account-Based Marketing Engine</p>
+
+    <table class="cover-table">
+      <tr>
+        <td>Project Title</td>
+        <td>ABM Engine — Agentic Account-Based Marketing Engine</td>
+      </tr>
+      <tr>
+        <td>Author</td>
+        <td>Agastya L Shetty</td>
+      </tr>
+      <tr>
+        <td>Academic Mentor</td>
+        <td>Prof. Rachit Garg</td>
+      </tr>
+      <tr>
+        <td>Industry Sponsor</td>
+        <td>Fractional CMO Partners LLP</td>
+      </tr>
+      <tr>
+        <td>Industry Mentor</td>
+        <td>Jayant Khirsagar</td>
+      </tr>
+      <tr>
+        <td>Submission</td>
+        <td>Final Project Presentation</td>
+      </tr>
+    </table>
+
+    <div class="cover-divider"></div>
+    <div class="cover-scroll-hint">Scroll to begin</div>
+  </div>
+</section>
+
+<!-- HERO SECTION -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-emoji">🎯</div>
+    <h1>ABM Engine</h1>
+    <p class="tagline">Agentic Account-Based Marketing Engine</p>
+    <p class="description">
+      A full-stack AI platform that <strong style="color:var(--accent);">automates business-to-business (B2B) marketing</strong>.
+      Instead of sales teams manually researching companies, writing emails, and tracking responses,
+      our system uses <strong style="color:var(--neon);">10+ AI agents</strong> to discover ideal customers,
+      personalize outreach, and engage them across email, LinkedIn, and SMS — all while keeping humans
+      in control through strategic review checkpoints.
+    </p>
+
+    <div class="hero-callout">
+      <h3>📖 What You'll Learn on This Page</h3>
+      <p>This document is designed to <strong>fully explain</strong> the ABM Engine project — from the
+      real-world problem it solves, to the technologies used, to how every component works together.
+      <strong style="color:var(--accent);">No prior knowledge required.</strong>
+      Just scroll down and everything will be explained step by step.</p>
+    </div>
+
+    <div class="hero-badges">
+      <div class="badge">⚡ FastAPI + React</div>
+      <div class="badge">🤖 AI-Powered</div>
+      <div class="badge">📊 9-Phase Workflow</div>
+      <div class="badge">🎨 10+ AI Agents</div>
+      <div class="badge">🚀 Production Ready</div>
+    </div>
+
+    <div class="reading-guide">
+      <h3>🗺️ How to Read This Document</h3>
+      <p style="color:var(--muted); font-size:14px; margin-bottom:15px;">
+        We've organized this page like a story — start at the top, scroll down, and by the end you'll
+        understand <strong style="color:var(--accent);">everything</strong> about this project.
+      </p>
+      <div class="reading-guide-grid">
+        <div class="reading-guide-item">
+          <strong>1. Background</strong>
+          <span>Understand what ABM is and why it matters</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>2. Problem</strong>
+          <span>See what's broken in current marketing workflows</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>3. Solution</strong>
+          <span>Discover how our platform fixes those problems</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>4. How It Works</strong>
+          <span>Step-by-step walkthrough with examples</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>5. Technology</strong>
+          <span>See the tools and frameworks we used</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>6. Architecture</strong>
+          <span>Understand how the system is structured</span>
+        </div>
+        <div class="reading-guide-item">
+          <strong>7. FAQ & Glossary</strong>
+          <span>Common questions and term definitions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-indicator">Scroll to learn more</div>
+</section>
+
+<!-- WHAT IS ABM -->
+<section id="understand">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 1 of 10 · Background</div>
+      <h2 class="section-title">First, What is ABM?</h2>
+      <p class="section-subtitle">Let's start with the basics. If you've never heard of Account-Based Marketing, this section is for you.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>📚 Plain English Explanation</h4>
+      <p>
+        <strong>Account-Based Marketing (ABM)</strong> is a B2B (business-to-business) sales strategy where
+        instead of marketing to <em>everyone</em>, companies focus on a small list of <strong>specific high-value
+        target companies</strong> ("accounts") and create personalized campaigns just for them.
+        <br><br>
+        <strong>Example:</strong> A software company that sells to enterprises won't advertise to random people.
+        Instead, they'll identify <em>"50 banks with over 10,000 employees that use Salesforce"</em> — and
+        then craft custom outreach for each one. That's ABM.
+      </p>
+    </div>
+
+    <div class="problem-solution">
+      <div class="ps-card solution reveal" style="grid-column: 1 / -1;">
+        <div class="ps-icon">💡</div>
+        <h3>The Core Concept</h3>
+        <p style="color:var(--text); font-size:15px; margin-bottom:20px;">
+          ABM follows a simple but powerful workflow that traditionally requires <strong>weeks of manual work</strong>:
+        </p>
+        <ul>
+          <li>
+            <strong>Step 1: Identify ideal customers</strong>
+            <small>Define what your perfect customer looks like (industry, size, tech they use, location, etc.) — this is called an "Ideal Customer Profile" or ICP.</small>
+          </li>
+          <li>
+            <strong>Step 2: Find matching companies</strong>
+            <small>Research databases to find real companies that match the ICP. Usually takes hours per company.</small>
+          </li>
+          <li>
+            <strong>Step 3: Research decision-makers</strong>
+            <small>Find out who at each company makes buying decisions, what they care about, what pain points they have.</small>
+          </li>
+          <li>
+            <strong>Step 4: Personalize outreach</strong>
+            <small>Write custom emails, LinkedIn messages, or scripts tailored to each company and person.</small>
+          </li>
+          <li>
+            <strong>Step 5: Multi-channel engagement</strong>
+            <small>Reach out via email, LinkedIn, phone, SMS, ads — often multiple touchpoints over weeks.</small>
+          </li>
+          <li>
+            <strong>Step 6: Track and qualify responses</strong>
+            <small>Monitor who responds, classify if they're interested, and hand them off to sales when ready.</small>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 2 of 10 · The Problem</div>
+      <h2 class="section-title">Why ABM is Broken Today</h2>
+      <p class="section-subtitle">Doing ABM manually is slow, expensive, and inconsistent. Here's why most companies struggle with it.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>🤔 The Reality Check</h4>
+      <p>
+        A typical B2B sales team spends <strong style="color:var(--danger);">60–80% of their time on prospecting</strong> —
+        researching companies, finding emails, writing messages — rather than actually <em>selling</em>.
+        Most outreach gets ignored because it's generic. Companies waste millions on tools that don't talk to each other.
+        Our project solves all of this.
+      </p>
+    </div>
+
+    <div class="problem-solution">
+      <div class="ps-card problem reveal">
+        <div class="ps-icon">⚠️</div>
+        <h3>The Pain Points</h3>
+        <ul>
+          <li>
+            <strong>Manual research is exhausting</strong>
+            <small>Sales reps spend 70% of their time researching companies one-by-one instead of selling. A single prospect takes 30+ minutes to research properly.</small>
+          </li>
+          <li>
+            <strong>Generic outreach gets ignored</strong>
+            <small>Mass-blasted emails have less than 2% reply rates. Buyers can spot a template from a mile away and immediately delete it.</small>
+          </li>
+          <li>
+            <strong>Tools don't talk to each other</strong>
+            <small>Marketing teams juggle 10+ disconnected platforms — CRM, email, LinkedIn, SMS, analytics — each in its own silo with no coordination.</small>
+          </li>
+          <li>
+            <strong>No intelligent qualification</strong>
+            <small>Companies waste time chasing leads that will never buy because they have no way to score account fit objectively.</small>
+          </li>
+          <li>
+            <strong>Personalization doesn't scale</strong>
+            <small>Truly personalized messages work, but writing them for 500 companies is humanly impossible.</small>
+          </li>
+          <li>
+            <strong>No learning loop</strong>
+            <small>Teams repeat the same mistakes campaign after campaign because there's no feedback mechanism between marketing, sales, and clients.</small>
+          </li>
+        </ul>
+      </div>
+
+      <div class="ps-card solution reveal" id="solution">
+        <div class="ps-icon">✨</div>
+        <h3>How ABM Engine Solves It</h3>
+        <ul>
+          <li>
+            <strong>AI agents handle the research</strong>
+            <small>10+ specialized AI agents pull data from Apollo, Crunchbase, and BuiltWith automatically, saving 95% of research time.</small>
+          </li>
+          <li>
+            <strong>LLM-powered personalization at scale</strong>
+            <small>Claude and GPT-4o-mini craft unique messages for every account using rich enrichment data — like having 100 expert copywriters.</small>
+          </li>
+          <li>
+            <strong>One unified platform</strong>
+            <small>Email (Instantly), LinkedIn (Phantombuster), and SMS (Twilio) all orchestrated through a single dashboard with shared analytics.</small>
+          </li>
+          <li>
+            <strong>6-dimensional scoring</strong>
+            <small>Every account is scored on industry fit, company size, tech stack, geography, funding, and buying signals — ranked by likelihood to buy.</small>
+          </li>
+          <li>
+            <strong>Human checkpoints (CP1–CP4)</strong>
+            <small>Four strategic review gates ensure humans approve critical decisions, preventing AI from making costly mistakes.</small>
+          </li>
+          <li>
+            <strong>Continuous learning loop</strong>
+            <small>Client feedback automatically refines templates and prompts. The system gets smarter with every campaign.</small>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT STATS -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 3 of 10 · By the Numbers</div>
+      <h2 class="section-title">Project at a Glance</h2>
+      <p class="section-subtitle">Here's the scope of what we built — every number represents real working code in our codebase.</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="10">0</div>
+        <div class="stat-label">AI Agents</div>
+        <div class="stat-explain">Specialized bots for each phase</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="9">0</div>
+        <div class="stat-label">Workflow Phases</div>
+        <div class="stat-explain">From intake to handoff</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="11">0</div>
+        <div class="stat-label">REST API Endpoints</div>
+        <div class="stat-explain">Backend-frontend communication</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="7">0</div>
+        <div class="stat-label">External APIs</div>
+        <div class="stat-explain">Data sources & channels</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="4">0</div>
+        <div class="stat-label">Human Checkpoints</div>
+        <div class="stat-explain">Quality control gates</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="8">0</div>
+        <div class="stat-label">Frontend Pages</div>
+        <div class="stat-explain">User-facing screens</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="2">0</div>
+        <div class="stat-label">LLM Providers</div>
+        <div class="stat-explain">Claude + GPT-4o-mini</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-number" data-target="3">0</div>
+        <div class="stat-label">Outbound Channels</div>
+        <div class="stat-explain">Email, LinkedIn, SMS</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 4 of 10 · How It Works</div>
+      <h2 class="section-title">A Real-World Walkthrough</h2>
+      <p class="section-subtitle">Let's walk through exactly what happens when a user opens our platform. We'll use a concrete example throughout.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>📖 Our Example Scenario</h4>
+      <p>
+        Throughout this walkthrough, imagine you're <strong style="color:var(--accent);">"TechCorp"</strong> — a startup
+        selling cybersecurity software. You want to find and engage <strong>50 banks in the United States with over
+        5,000 employees that use AWS</strong>. Here's how our platform makes that happen, automatically.
+      </p>
+    </div>
+
+    <div class="how-it-works">
+      <div class="hiw-step reveal">
+        <div class="hiw-number">1</div>
+        <div class="hiw-content">
+          <h3>🔐 User Logs In & Sets Up</h3>
+          <p>The user (TechCorp's marketing team) opens our React-based web app at <code>localhost:5173</code>. They land on the Intake page — a clean form built with Tailwind CSS.</p>
+          <div class="hiw-example">
+            <strong>What happens behind the scenes:</strong>
+            <p>React mounts the Intake component → fetches user session via Axios → backend (FastAPI) validates session → displays form.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">React 18</span>
+            <span class="hiw-tag">TypeScript</span>
+            <span class="hiw-tag">Tailwind</span>
+            <span class="hiw-tag">FastAPI</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">2</div>
+        <div class="hiw-content">
+          <h3>📝 User Fills in Their ICP (Ideal Customer Profile)</h3>
+          <p>TechCorp enters their criteria into the form: industry = "Banking", company size = "5000+ employees", tech stack = "AWS", geography = "United States", budget = "$50K+".</p>
+          <div class="hiw-example">
+            <strong>Auto-save magic:</strong>
+            <p>Every few seconds, the form data is saved to <strong>Redis</strong> with a 7-day expiration. If the user closes their browser, they can resume right where they left off.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Redis</span>
+            <span class="hiw-tag">JSON Schema</span>
+            <span class="hiw-tag">Pydantic</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">3</div>
+        <div class="hiw-content">
+          <h3>🔍 ICP Scout Agent Discovers Companies</h3>
+          <p>When the user clicks "Discover", our <strong>ICP Scout Agent</strong> springs into action. It queries 4 external APIs in parallel to find matching companies.</p>
+          <div class="hiw-example">
+            <strong>Data sources hit:</strong>
+            <p>Apollo.io (company database) → Harmonic.ai (startup funding) → Crunchbase (financial data) → BuiltWith (tech stack detection). Results are merged, deduplicated, and normalized.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Apollo.io</span>
+            <span class="hiw-tag">Crunchbase</span>
+            <span class="hiw-tag">BuiltWith</span>
+            <span class="hiw-tag">Async Python</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">4</div>
+        <div class="hiw-content">
+          <h3>⚖️ AI Scores Each Account Across 6 Dimensions</h3>
+          <p>For every discovered company (say, JP Morgan, Goldman Sachs, Bank of America...), the system calculates a score from 0–100 based on how well they match.</p>
+          <div class="hiw-example">
+            <strong>Example score for JP Morgan:</strong>
+            <p>Industry: 95/100 (banking ✓) · Size: 100/100 (250K employees ✓) · Tech: 90/100 (uses AWS ✓) · Geo: 100/100 (US-based ✓) · Funding: 100/100 (public) · Triggers: 75/100 (recent CISO hire) → <strong style="color:var(--success);">Total: 93/100</strong></p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Scoring Algorithm</span>
+            <span class="hiw-tag">Pandas</span>
+            <span class="hiw-tag">NumPy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">5</div>
+        <div class="hiw-content">
+          <h3>🧠 Buyer Intelligence Enrichment</h3>
+          <p>For top-scoring accounts, the <strong>Buyer Intel Agent</strong> goes deeper — it finds decision-makers, maps the org chart, identifies pain points, and researches procurement processes.</p>
+          <div class="hiw-example">
+            <strong>For JP Morgan, the system finds:</strong>
+            <p>"CISO: Jane Smith (joined 6 months ago) · CFO: John Doe · Recent news: $50M cybersecurity budget approved · Pain points: legacy systems integration · Buying authority: requires VP+ sign-off"</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">LinkedIn Data</span>
+            <span class="hiw-tag">News APIs</span>
+            <span class="hiw-tag">LLM Analysis</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">6</div>
+        <div class="hiw-content">
+          <h3>✅ Checkpoint 2: Human Reviews & Approves</h3>
+          <p>This is critical — before AI writes any messages, a <strong>human reviews the account list</strong>. They can edit scores, remove bad fits, or add notes. The system blocks progression until approval.</p>
+          <div class="hiw-example">
+            <strong>Why this matters:</strong>
+            <p>Even the best AI makes mistakes. A human checkpoint prevents sending emails to wrong companies or based on incorrect data. This builds trust in AI systems.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">CP-2 Agent</span>
+            <span class="hiw-tag">Audit Logs</span>
+            <span class="hiw-tag">RBAC</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">7</div>
+        <div class="hiw-content">
+          <h3>✍️ Storyteller Agent Writes Personalized Messages</h3>
+          <p>For each approved account, the <strong>Storyteller Agent</strong> calls Claude (Anthropic) or GPT-4o-mini (OpenAI) with rich context to generate personalized outreach.</p>
+          <div class="hiw-example">
+            <strong>Generated email for JP Morgan:</strong>
+            <p>"Hi Jane, Congrats on your recent move to JP Morgan! Given the $50M cybersecurity initiative announced last quarter, I thought you'd be interested in how TechCorp helped Goldman Sachs reduce their AWS attack surface by 60%..."</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Claude API</span>
+            <span class="hiw-tag">GPT-4o-mini</span>
+            <span class="hiw-tag">Prompt Templates</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">8</div>
+        <div class="hiw-content">
+          <h3>💬 Checkpoint 3: Operator + Client Review Messages</h3>
+          <p>Before sending, both the <strong>operator</strong> (marketing team) and <strong>end client</strong> (TechCorp's CEO) review and approve messages. Feedback flows back to refine templates.</p>
+          <div class="hiw-example">
+            <strong>The feedback loop:</strong>
+            <p>If the CEO says "make it more casual" → the system updates the prompt template → all future messages improve. The system literally learns from feedback.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">CP-3 Agent</span>
+            <span class="hiw-tag">Template Versioning</span>
+            <span class="hiw-tag">Feedback Loop</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">9</div>
+        <div class="hiw-content">
+          <h3>🚀 Campaign Agent Launches Multi-Channel Outreach</h3>
+          <p>Approved messages are sent across 3 channels simultaneously. The <strong>Campaign Agent</strong> orchestrates everything with built-in safety features.</p>
+          <div class="hiw-example">
+            <strong>Multi-channel execution:</strong>
+            <p>📧 Instantly.ai sends personalized emails · 💼 Phantombuster sends LinkedIn connection requests + DMs · 📱 Twilio sends follow-up SMS · All tracked in one dashboard with quota limits (max 50/day) and circuit breakers (stop on errors).</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Instantly.ai</span>
+            <span class="hiw-tag">Phantombuster</span>
+            <span class="hiw-tag">Twilio</span>
+            <span class="hiw-tag">Rate Limiting</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">10</div>
+        <div class="hiw-content">
+          <h3>📊 Real-Time Engagement Tracking</h3>
+          <p>As prospects open emails, click links, reply, or bounce, our system captures every event via <strong>webhooks</strong> and updates the dashboard in real-time.</p>
+          <div class="hiw-example">
+            <strong>What gets tracked:</strong>
+            <p>Email opens (47%), link clicks (12%), replies (8%), bounces (3%), LinkedIn acceptance (35%), SMS responses (15%). Engagement scores update live. Hot accounts flagged automatically.</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">Webhooks</span>
+            <span class="hiw-tag">WebSockets</span>
+            <span class="hiw-tag">SQLite</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-number">11</div>
+        <div class="hiw-content">
+          <h3>🎯 Verifier Agent Classifies Responses & Hands Off to Sales</h3>
+          <p>When prospects reply, the <strong>Verifier Agent</strong> uses LLMs to classify the response (positive, negative, neutral, out-of-office) and generates handoff notes for the sales team.</p>
+          <div class="hiw-example">
+            <strong>Example handoff note:</strong>
+            <p>"🟢 HOT LEAD: Jane Smith (JP Morgan) replied positively. Mentioned Q4 budget. Suggested call next Tuesday. Suggested talking points: AWS security, compliance, Goldman case study. Lead score: 92/100."</p>
+          </div>
+          <div class="hiw-tech">
+            <span class="hiw-tag">LLM Classification</span>
+            <span class="hiw-tag">CRM Integration</span>
+            <span class="hiw-tag">Sentiment Analysis</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-flow reveal">
+      <h3>🔄 Quick Data Flow Summary</h3>
+      <div class="data-flow-steps">
+        <div class="df-step">
+          <span class="df-label">Input</span>
+          <div class="df-content">{ industry: "banking", size: "5000+", tech: "AWS" }</div>
+        </div>
+        <div class="df-arrow">→</div>
+        <div class="df-step">
+          <span class="df-label">Discovery</span>
+          <div class="df-content">[ JPM, GS, BoA, Wells, ... ] (50 accounts)</div>
+        </div>
+        <div class="df-arrow">→</div>
+        <div class="df-step">
+          <span class="df-label">Scoring + Intel</span>
+          <div class="df-content">[ { score: 93, persona: {...} }, ... ]</div>
+        </div>
+        <div class="df-arrow">→</div>
+        <div class="df-step">
+          <span class="df-label">Outbound</span>
+          <div class="df-content">📧+💼+📱 sent → opens, clicks, replies</div>
+        </div>
+        <div class="df-arrow">→</div>
+        <div class="df-step">
+          <span class="df-label">Sales Handoff</span>
+          <div class="df-content">{ qualified_leads: 8, notes: "..." }</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE 9 PHASES IN DETAIL -->
+<section id="phases">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 5 of 10 · The 9 Phases</div>
+      <h2 class="section-title">Detailed Phase Breakdown</h2>
+      <p class="section-subtitle">Each phase is a distinct module with its own agents, data, and UI. Here's exactly what each phase does and why it exists.</p>
+    </div>
+
+    <div class="phase-detail-grid">
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">📝</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 1</div>
+            <h3>Intake — Capturing the ICP</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>The very first step. Users tell the system who their ideal customer is. This information drives every subsequent phase.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Presents a structured form with validated fields</li>
+              <li>Captures: industry, company size, budget, tech stack, geography</li>
+              <li>Validates data against JSON schemas (MasterContext)</li>
+              <li>Auto-saves drafts to Redis (7-day TTL)</li>
+              <li>Allows users to resume incomplete forms</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Real Example</span>
+            <p>"TechCorp wants banks (SIC: 6021), 5000+ employees, $50K+ budget, using AWS, located in US/Canada/UK"</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">🔍</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 2</div>
+            <h3>ICP Scout — Finding Real Companies</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>Take the abstract ICP and find <strong>actual companies</strong> in the real world that match it.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Queries Apollo.io for company directories</li>
+              <li>Queries Harmonic.ai for funded startups</li>
+              <li>Queries Crunchbase for financial data</li>
+              <li>Queries BuiltWith for tech stack detection</li>
+              <li>Deduplicates and normalizes results</li>
+              <li>Scores each account across 6 dimensions</li>
+              <li>Supports CSV upload of existing prospect lists</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Real Example</span>
+            <p>Returns: "JP Morgan Chase (score: 93), Goldman Sachs (91), Bank of America (88), Wells Fargo (85)..." — 50 ranked accounts total</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">🧠</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 3</div>
+            <h3>Buyer Intelligence — Going Deep</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>Discovery tells us <em>which companies</em> to target. Intelligence tells us <em>who within those companies</em> to talk to and what to say.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Identifies decision-makers (CISO, CFO, etc.)</li>
+              <li>Maps reporting relationships (org charts)</li>
+              <li>Researches recent news (funding, hires, layoffs)</li>
+              <li>Identifies pain points from industry signals</li>
+              <li>Analyzes procurement processes</li>
+              <li>Builds buyer personas using LLM synthesis</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Real Example</span>
+            <p>"Target: Jane Smith, CISO at JP Morgan. Joined 6 months ago. Reports to CTO. Pain points: legacy AWS sprawl. Recent news: $50M security budget. Buying motion: VP+ sign-off required."</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">✅</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Checkpoint 2</div>
+            <h3>Human Review Gate — Account Approval</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>The first hard stop in the workflow. A human <strong>must</strong> approve the account list and intelligence before AI writes any messages.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Presents reviewable dashboard with all accounts</li>
+              <li>Allows score editing, removal, additions</li>
+              <li>Captures rationale for changes (audit trail)</li>
+              <li>Enforces gate — blocks Phase 5 until approval</li>
+              <li>Logs all decisions for compliance</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Why This Exists</span>
+            <p>AI can hallucinate. A human catching mistakes here (e.g., wrong industry classification) prevents 50 bad emails from being sent. It's the safety net that makes AI deployment trustworthy.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">✍️</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 5 / CP-3</div>
+            <h3>Storyteller + Messaging Review</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>Generate personalized outreach for every account using LLMs, then have operators and clients review before sending.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Loads versioned prompt templates from DB</li>
+              <li>Injects buyer intel context into prompts</li>
+              <li>Calls Claude API (primary) or GPT-4o-mini (fallback)</li>
+              <li>Generates multi-tier outputs (tier-1/2/3)</li>
+              <li>Validates output against schema</li>
+              <li>Presents in operator review UI</li>
+              <li>Captures client feedback for refinement</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Multi-Tier Concept</span>
+            <p>Tier-1: Highly personalized (used when rich data available). Tier-2: Moderate personalization. Tier-3: Generic fallback (used when data is sparse). This ensures every account gets <em>something</em>, even with imperfect data.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">🚀</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 6</div>
+            <h3>Campaign Execution — Outbound</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>Actually send the messages across multiple channels and track every interaction.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Email sequences via Instantly.ai</li>
+              <li>LinkedIn automation via Phantombuster</li>
+              <li>SMS campaigns via Twilio</li>
+              <li>Enforces daily quotas (e.g., max 50 emails/day)</li>
+              <li>Circuit breakers stop on errors</li>
+              <li>Tracks opens, clicks, replies via webhooks</li>
+              <li>Updates engagement scores in real-time</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Safety Features</span>
+            <p>Quota tracking prevents spam-flag penalties. Circuit breakers automatically pause campaigns if bounce rates spike. Rate limiting respects API provider limits. All critical for production deployment.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">📊</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Checkpoint 4</div>
+            <h3>Campaign Performance Review</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>Before handing leads to the sales team, operators review campaign performance and quality.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Aggregates campaign metrics</li>
+              <li>Shows engagement breakdowns by channel</li>
+              <li>Identifies hot accounts (high engagement)</li>
+              <li>Shows reply classification distribution</li>
+              <li>Approves which accounts to hand off</li>
+              <li>Final QA gate before sales</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Example Dashboard</span>
+            <p>"Total sent: 150 · Opens: 71 (47%) · Clicks: 18 (12%) · Replies: 12 (8%) · Hot accounts: 8 · Approve for handoff?"</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">👥</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 8</div>
+            <h3>Client Approval Portal</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>A separate portal where the end client (TechCorp's CEO) can review qualified leads and provide final approval before sales contacts them.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Token-based access for clients</li>
+              <li>Shows curated list of qualified accounts</li>
+              <li>Displays engagement evidence</li>
+              <li>Captures approve/reject decisions</li>
+              <li>Collects feedback for continuous learning</li>
+              <li>Multi-stakeholder access support</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Why This Exists</span>
+            <p>The client owns their brand. Letting them see and approve outreach before sales calls happen builds trust and prevents brand mishaps. The feedback also makes our AI smarter.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase-detail reveal">
+        <div class="phase-header">
+          <div class="phase-header-icon">🎯</div>
+          <div class="phase-header-text">
+            <div class="phase-num">Phase 9</div>
+            <h3>Verification & Sales Handoff</h3>
+          </div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-body-section">
+            <h5>🎯 Purpose</h5>
+            <p>The final phase — classify all responses, prepare clean handoff packages, and deliver them to the sales team.</p>
+          </div>
+          <div class="phase-body-section">
+            <h5>⚙️ What It Does</h5>
+            <ul>
+              <li>Classifies replies via LLM (positive/negative/OOO/neutral)</li>
+              <li>Computes final lead score</li>
+              <li>Generates suggested talking points</li>
+              <li>Creates structured handoff notes</li>
+              <li>Pushes data to CRM (Salesforce, HubSpot, etc.)</li>
+              <li>Notifies sales team via Slack/Email</li>
+            </ul>
+          </div>
+          <div class="phase-example-box">
+            <span class="label">Handoff Note Example</span>
+            <p>"🟢 Jane Smith (JP Morgan, CISO) — Positive reply, mentioned Q4 budget, asked for case study, suggested call Tuesday 2PM. Lead score: 92/100. Suggested talking points: AWS security, compliance frameworks, Goldman Sachs case study."</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHECKPOINTS -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 6 of 10 · Human-in-the-Loop</div>
+      <h2 class="section-title">4 Strategic Checkpoints</h2>
+      <p class="section-subtitle">AI is powerful but imperfect. These 4 checkpoints ensure humans remain in control of critical decisions.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>🤝 Why Checkpoints Matter</h4>
+      <p>
+        Fully autonomous AI systems are dangerous in marketing — wrong messages can damage brand reputation,
+        violate regulations, or waste budgets. Our 4 checkpoints (CP-1 to CP-4) ensure that at every critical
+        decision point, a human reviews and approves. This is called <strong>"human-in-the-loop" architecture</strong>
+        and it's considered best practice for production AI systems.
+      </p>
+    </div>
+
+    <div class="checkpoint-grid">
+      <div class="checkpoint-card reveal">
+        <div class="checkpoint-badge">CP-1</div>
+        <div class="checkpoint-icon">📝</div>
+        <h4>Intake Validation</h4>
+        <p>Validates the ICP criteria before discovery starts</p>
+        <div class="checkpoint-why">
+          <strong>Prevents:</strong>
+          <span>Bad input data cascading into bad discovery results. "Garbage in, garbage out."</span>
+        </div>
+      </div>
+      <div class="checkpoint-card reveal">
+        <div class="checkpoint-badge">CP-2</div>
+        <div class="checkpoint-icon">✅</div>
+        <h4>Account Approval</h4>
+        <p>Human reviews discovered accounts and buyer intelligence</p>
+        <div class="checkpoint-why">
+          <strong>Prevents:</strong>
+          <span>Sending outreach to wrong companies, AI hallucinations, or unwanted prospects.</span>
+        </div>
+      </div>
+      <div class="checkpoint-card reveal">
+        <div class="checkpoint-badge">CP-3</div>
+        <div class="checkpoint-icon">💬</div>
+        <h4>Message Review</h4>
+        <p>Operator + client approve all LLM-generated messaging</p>
+        <div class="checkpoint-why">
+          <strong>Prevents:</strong>
+          <span>Brand damage from poor wording, factual errors, or off-brand messaging.</span>
+        </div>
+      </div>
+      <div class="checkpoint-card reveal">
+        <div class="checkpoint-badge">CP-4</div>
+        <div class="checkpoint-icon">📊</div>
+        <h4>Campaign Approval</h4>
+        <p>Performance review before sales handoff</p>
+        <div class="checkpoint-why">
+          <strong>Prevents:</strong>
+          <span>Low-quality leads wasting sales team time, ensures only qualified prospects proceed.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI AGENTS DETAILED -->
+<section id="agents">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 7 of 10 · AI Agents</div>
+      <h2 class="section-title">Meet the AI Agents</h2>
+      <p class="section-subtitle">An "agent" is a specialized AI program with a specific job. Here are all 10+ agents that power our platform.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>🤖 What is an "Agent" Anyway?</h4>
+      <p>
+        Think of agents as <strong>specialized AI workers</strong>. Instead of one giant AI that does everything
+        (and does it poorly), we have many small, focused agents — each excellent at one specific task.
+        They communicate via well-defined APIs and pass data between each other through the workflow.
+        This pattern is called <strong>"agentic architecture"</strong> and it's how modern production AI systems are built.
+      </p>
+    </div>
+
+    <div class="agents-grid">
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">📥</div>
+          <div>
+            <h4>Intake Agent</h4>
+            <div class="agent-role">Validator</div>
+          </div>
+        </div>
+        <p>Receives user input from the Intake form, validates it against the MasterContext schema, and persists draft state.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Form JSON → Validated MasterContext object stored in Redis</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">🔍</div>
+          <div>
+            <h4>ICP Scout</h4>
+            <div class="agent-role">Discovery</div>
+          </div>
+        </div>
+        <p>The discovery powerhouse. Queries 4 external APIs, scores results across 6 dimensions, deduplicates, and ranks.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>MasterContext → List of ranked accounts with scores [0-100]</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">🧠</div>
+          <div>
+            <h4>Buyer Intel</h4>
+            <div class="agent-role">Enricher</div>
+          </div>
+        </div>
+        <p>Goes deep on each account — identifies decision-makers, maps org charts, finds pain points, and builds personas.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Account list → Enriched accounts with personas, news, pain points</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">🛡️</div>
+          <div>
+            <h4>CP-2 Agent</h4>
+            <div class="agent-role">Gate Keeper</div>
+          </div>
+        </div>
+        <p>Manages the Checkpoint 2 workflow. Allows humans to review, edit, approve or reject account lists.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Enriched accounts → Approved subset + audit log</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">✍️</div>
+          <div>
+            <h4>Storyteller</h4>
+            <div class="agent-role">LLM Writer</div>
+          </div>
+        </div>
+        <p>The creative one. Uses Claude or GPT-4o-mini to generate personalized, multi-tier outreach messages.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Approved accounts + templates → Personalized messages per account</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">💬</div>
+          <div>
+            <h4>CP-3 Agent</h4>
+            <div class="agent-role">Review Manager</div>
+          </div>
+        </div>
+        <p>Handles message approval workflow. Captures operator + client feedback and refines templates over time.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Generated messages → Approved messages + template updates</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">🚀</div>
+          <div>
+            <h4>Campaign Agent</h4>
+            <div class="agent-role">Orchestrator</div>
+          </div>
+        </div>
+        <p>Conducts the multi-channel outreach symphony — coordinates Instantly, Phantombuster, and Twilio with safety controls.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Approved messages → Sent campaigns + engagement events</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">📊</div>
+          <div>
+            <h4>CP-4 Agent</h4>
+            <div class="agent-role">Performance Reviewer</div>
+          </div>
+        </div>
+        <p>Aggregates campaign metrics, presents performance dashboards, and gates progression to sales handoff.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Engagement data → Approved handoff list + metrics report</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">🎯</div>
+          <div>
+            <h4>Verifier</h4>
+            <div class="agent-role">Classifier</div>
+          </div>
+        </div>
+        <p>Uses LLMs to classify replies (positive/negative/OOO) and generates structured handoff notes for sales.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Reply text → Classification + lead score + handoff note</p>
+        </div>
+      </div>
+
+      <div class="agent-card reveal">
+        <div class="agent-card-top">
+          <div class="agent-icon">📡</div>
+          <div>
+            <h4>Recent Activity</h4>
+            <div class="agent-role">Logger</div>
+          </div>
+        </div>
+        <p>Tracks every system event for audit trails, debugging, and analytics dashboards.</p>
+        <div class="agent-detail-section">
+          <strong>Input → Output</strong>
+          <p>Any system event → Persisted activity log entry</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 8 of 10 · Technology</div>
+      <h2 class="section-title">The Technology Stack</h2>
+      <p class="section-subtitle">Hover over any technology to see what it does and why we chose it.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>🛠️ Engineering Choices</h4>
+      <p>
+        Every technology was picked for a specific reason — performance, developer experience, ecosystem,
+        or scalability. The combination represents a <strong>modern, production-grade stack</strong> used by
+        companies like Stripe, Vercel, and Anthropic. Hover over each item below to learn more.
+      </p>
+    </div>
+
+    <div class="tech-categories">
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">🐍</div>
+          <h3>Backend</h3>
+        </div>
+        <p class="tech-cat-explain">The server that powers everything behind the scenes</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Async Python web framework with auto-docs">FastAPI</div>
+          <div class="tech-item" data-tip="Modern Python with type hints">Python 3.10+</div>
+          <div class="tech-item" data-tip="Lightweight embedded database">SQLite</div>
+          <div class="tech-item" data-tip="Production-grade relational DB">PostgreSQL</div>
+          <div class="tech-item" data-tip="In-memory cache for drafts">Redis</div>
+          <div class="tech-item" data-tip="Python testing framework">Pytest</div>
+          <div class="tech-item" data-tip="Data validation with type hints">Pydantic</div>
+        </div>
+      </div>
+
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">⚛️</div>
+          <h3>Frontend</h3>
+        </div>
+        <p class="tech-cat-explain">The user interface users interact with in their browser</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Component-based UI library">React 18</div>
+          <div class="tech-item" data-tip="JS with type safety">TypeScript</div>
+          <div class="tech-item" data-tip="Lightning-fast build tool">Vite 5</div>
+          <div class="tech-item" data-tip="Utility-first CSS framework">Tailwind CSS</div>
+          <div class="tech-item" data-tip="HTTP client for API calls">Axios</div>
+          <div class="tech-item" data-tip="Mock APIs for frontend testing">MSW</div>
+          <div class="tech-item" data-tip="State management">React Context</div>
+        </div>
+      </div>
+
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">🤖</div>
+          <h3>AI / LLMs</h3>
+        </div>
+        <p class="tech-cat-explain">The brain — large language models that write personalized content</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Anthropic's flagship LLM, primary writer">Claude (Anthropic)</div>
+          <div class="tech-item" data-tip="OpenAI's efficient model, fallback">GPT-4o-mini</div>
+          <div class="tech-item" data-tip="Versioned prompt management">Prompt Templates</div>
+          <div class="tech-item" data-tip="Tier-1/2/3 graceful degradation">Multi-tier Fallback</div>
+        </div>
+      </div>
+
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">🔗</div>
+          <h3>Data Sources</h3>
+        </div>
+        <p class="tech-cat-explain">External APIs that provide company and contact data</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Largest B2B contact database">Apollo.io</div>
+          <div class="tech-item" data-tip="Startup intelligence platform">Harmonic.ai</div>
+          <div class="tech-item" data-tip="Funding and financial data">Crunchbase</div>
+          <div class="tech-item" data-tip="Detects which tech websites use">BuiltWith</div>
+        </div>
+      </div>
+
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">📡</div>
+          <h3>Outbound Channels</h3>
+        </div>
+        <p class="tech-cat-explain">The platforms we use to actually send messages</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Cold email automation">Instantly.ai</div>
+          <div class="tech-item" data-tip="LinkedIn outreach automation">Phantombuster</div>
+          <div class="tech-item" data-tip="SMS and voice APIs">Twilio</div>
+          <div class="tech-item" data-tip="For testing without spending">Mock Transport</div>
+        </div>
+      </div>
+
+      <div class="tech-cat reveal">
+        <div class="tech-cat-header">
+          <div class="tech-cat-icon">⚙️</div>
+          <h3>DevOps & Tools</h3>
+        </div>
+        <p class="tech-cat-explain">Tools that make development and deployment smooth</p>
+        <div class="tech-items">
+          <div class="tech-item" data-tip="Container platform">Docker</div>
+          <div class="tech-item" data-tip="Version control">Git</div>
+          <div class="tech-item" data-tip="Auto-generated API docs">Swagger UI</div>
+          <div class="tech-item" data-tip="ASGI web server">Uvicorn</div>
+          <div class="tech-item" data-tip="Environment variable manager">dotenv</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 9 of 10 · Architecture</div>
+      <h2 class="section-title">System Architecture</h2>
+      <p class="section-subtitle">A bird's-eye view of how all the pieces fit together, layer by layer.</p>
+    </div>
+
+    <div class="section-intro reveal">
+      <h4>🏗️ Layered Architecture</h4>
+      <p>
+        Our system follows a <strong>5-layer architecture</strong> — a standard pattern used in production systems.
+        Each layer has a single responsibility and communicates only with adjacent layers. This makes the code easy
+        to understand, test, and modify. Read top to bottom — that's how data flows when a user clicks a button.
+      </p>
+    </div>
+
+    <div class="architecture-diagram reveal">
+      <div class="arch-layer">
+        <div class="arch-layer-header">
+          <div class="arch-layer-title">Layer 1 · 👤 Presentation Layer (Frontend)</div>
+          <div class="arch-layer-explain">What users see and click — built with React + TypeScript</div>
+        </div>
+        <div class="arch-blocks">
+          <div class="arch-block"><div class="arch-block-icon">📝</div><div class="arch-block-name">Intake Page</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🔍</div><div class="arch-block-name">ICP Discovery</div></div>
+          <div class="arch-block"><div class="arch-block-icon">✅</div><div class="arch-block-name">CP-2 Review</div></div>
+          <div class="arch-block"><div class="arch-block-icon">💬</div><div class="arch-block-name">CP-3 Messaging</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🚀</div><div class="arch-block-name">Campaign Dashboard</div></div>
+          <div class="arch-block"><div class="arch-block-icon">👥</div><div class="arch-block-name">Client Portal</div></div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">⇅ HTTP / Axios</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-header">
+          <div class="arch-layer-title">Layer 2 · 🔌 API Layer (FastAPI REST Endpoints)</div>
+          <div class="arch-layer-explain">URL routes that frontend calls — entry points to business logic</div>
+        </div>
+        <div class="arch-blocks">
+          <div class="arch-block"><div class="arch-block-icon">📋</div><div class="arch-block-name">/api/intake</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🎯</div><div class="arch-block-name">/api/icp</div></div>
+          <div class="arch-block"><div class="arch-block-icon">💬</div><div class="arch-block-name">/api/cp3</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🚀</div><div class="arch-block-name">/api/campaign</div></div>
+          <div class="arch-block"><div class="arch-block-icon">📜</div><div class="arch-block-name">/api/templates</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🪝</div><div class="arch-block-name">/api/webhooks</div></div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">⇅ Function calls</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-header">
+          <div class="arch-layer-title">Layer 3 · 🤖 Agent Orchestration Layer</div>
+          <div class="arch-layer-explain">The brain — 10+ specialized AI agents that do all the heavy lifting</div>
+        </div>
+        <div class="arch-blocks">
+          <div class="arch-block"><div class="arch-block-icon">📥</div><div class="arch-block-name">Intake</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🔍</div><div class="arch-block-name">ICP Scout</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🧠</div><div class="arch-block-name">Buyer Intel</div></div>
+          <div class="arch-block"><div class="arch-block-icon">✍️</div><div class="arch-block-name">Storyteller</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🚀</div><div class="arch-block-name">Campaign</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🎯</div><div class="arch-block-name">Verifier</div></div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">⇅ HTTPS API calls</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-header">
+          <div class="arch-layer-title">Layer 4 · 🔗 Integration Layer (External Services)</div>
+          <div class="arch-layer-explain">Third-party APIs we integrate with — data sources, LLMs, channels</div>
+        </div>
+        <div class="arch-blocks">
+          <div class="arch-block"><div class="arch-block-icon">🤖</div><div class="arch-block-name">Claude API</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🤖</div><div class="arch-block-name">OpenAI</div></div>
+          <div class="arch-block"><div class="arch-block-icon">🌐</div><div class="arch-block-name">Apollo</div></div>
+          <div class="arch-block"><div class="arch-block-icon">📧</div><div class="arch-block-name">Instantly</div></div>
+          <div class="arch-block"><div class="arch-block-icon">💼</div><div class="arch-block-name">Phantombuster</div></div>
+          <div class="arch-block"><div class="arch-block-icon">📱</div><div class="arch-block-name">Twilio</div></div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">⇅ SQL / Key-Value</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-header">
+          <div class="arch-layer-title">Layer 5 · 💾 Data Persistence Layer</div>
+          <div class="arch-layer-explain">Where all data lives — databases, caches, schemas</div>
+        </div>
+        <div class="arch-blocks">
+          <div class="arch-block"><div class="arch-block-icon">🗄️</div><div class="arch-block-name">SQLite / Postgres</div></div>
+          <div class="arch-block"><div class="arch-block-icon">⚡</div><div class="arch-block-name">Redis Cache</div></div>
+          <div class="arch-block"><div class="arch-block-icon">📋</div><div class="arch-block-name">JSON Schemas</div></div>
+          <div class="arch-block"><div class="arch-block-icon">📂</div><div class="arch-block-name">File Storage</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- KEY FEATURES -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Key Features</div>
+      <h2 class="section-title">What Makes It Special</h2>
+      <p class="section-subtitle">9 standout features that demonstrate engineering excellence and real-world thinking.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-box reveal">
+        <div class="feature-icon">🎭</div>
+        <h3>Multi-Tier LLM Storytelling</h3>
+        <p>Smart fallback system: when rich data exists, generates highly personalized tier-1 messages. When data is sparse, gracefully falls back to tier-2 or generic tier-3. Ensures <strong>every account gets quality outreach</strong>.</p>
+        <div class="feature-tech-used">
+          <span>Claude</span><span>GPT-4o-mini</span><span>Templates</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">📡</div>
+        <h3>Multi-Channel Campaigns</h3>
+        <p>Unified API orchestrating outbound across email, LinkedIn, and SMS. Built-in <strong>quota enforcement</strong> (max sends per day), <strong>circuit breakers</strong> (auto-pause on errors), and rate limiting.</p>
+        <div class="feature-tech-used">
+          <span>Instantly</span><span>Phantombuster</span><span>Twilio</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">⚖️</div>
+        <h3>6-Dimensional Scoring</h3>
+        <p>Every account is scored 0–100 across <strong>industry fit, company size, tech stack, geography, funding status, and buying triggers</strong>. Precision targeting eliminates wasted outreach.</p>
+        <div class="feature-tech-used">
+          <span>Algorithm</span><span>Pandas</span><span>Custom Logic</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">🛡️</div>
+        <h3>Human-in-the-Loop Gates</h3>
+        <p>4 strategic checkpoints ensure humans review AI outputs at critical stages. Prevents cascading errors and ensures quality. <strong>Production AI requires human oversight</strong> — we build it in by design.</p>
+        <div class="feature-tech-used">
+          <span>CP-1</span><span>CP-2</span><span>CP-3</span><span>CP-4</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">💾</div>
+        <h3>Draft Persistence</h3>
+        <p>Redis-backed auto-save with 7-day TTL. Users can pause anywhere in the workflow and resume later without losing progress. <strong>Perfect for long-running ABM campaigns</strong>.</p>
+        <div class="feature-tech-used">
+          <span>Redis</span><span>TTL</span><span>Auto-save</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">🔄</div>
+        <h3>Continuous Learning</h3>
+        <p>Client feedback feeds back into template refinement. The system gets <strong>smarter with every campaign cycle</strong> — feedback → template updates → better future messages.</p>
+        <div class="feature-tech-used">
+          <span>Feedback Loop</span><span>Versioning</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">🧪</div>
+        <h3>Test-Driven Architecture</h3>
+        <p>Comprehensive Pytest suite covers Phase 3/4/5 schemas and agents. <strong>MSW (Mock Service Worker)</strong> enables full frontend testing without backend dependencies.</p>
+        <div class="feature-tech-used">
+          <span>Pytest</span><span>MSW</span><span>Coverage</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">📖</div>
+        <h3>Self-Documenting API</h3>
+        <p>FastAPI auto-generates interactive Swagger UI at <code>/docs</code>. Every endpoint is <strong>documented, testable, and discoverable</strong> — no separate API docs to maintain.</p>
+        <div class="feature-tech-used">
+          <span>Swagger</span><span>OpenAPI</span><span>FastAPI</span>
+        </div>
+      </div>
+
+      <div class="feature-box reveal">
+        <div class="feature-icon">🎨</div>
+        <h3>Type-Safe End-to-End</h3>
+        <p><strong>Pydantic</strong> on the backend, <strong>TypeScript</strong> on the frontend, and <strong>JSON Schema</strong> contracts in between. Eliminates entire classes of runtime bugs.</p>
+        <div class="feature-tech-used">
+          <span>Pydantic</span><span>TypeScript</span><span>JSON Schema</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- API ENDPOINTS -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">API Reference</div>
+      <h2 class="section-title">RESTful API Endpoints</h2>
+      <p class="section-subtitle">These are the URLs the frontend calls to talk to the backend. Each does one specific thing.</p>
+    </div>
+
+    <div class="api-table reveal">
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/intake</div>
+        <div class="api-desc">Submit ICP criteria and create MasterContext</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-get">GET</div>
+        <div class="api-path">/api/icp/discover</div>
+        <div class="api-desc">Discover matching accounts from data sources</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/buyer-intel/enrich</div>
+        <div class="api-desc">Enrich accounts with personas & org charts</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/cp2/approve</div>
+        <div class="api-desc">Approve account list at Checkpoint 2</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/storyteller/generate</div>
+        <div class="api-desc">Generate LLM-powered narratives</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-get">GET</div>
+        <div class="api-path">/api/templates</div>
+        <div class="api-desc">List versioned prompt templates</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/cp3/approve</div>
+        <div class="api-desc">Approve messaging at Checkpoint 3</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/campaign/launch</div>
+        <div class="api-desc">Launch multi-channel outbound campaign</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-get">GET</div>
+        <div class="api-path">/api/campaign/metrics</div>
+        <div class="api-desc">Retrieve real-time engagement metrics</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/cp4/approve</div>
+        <div class="api-desc">Approve campaign performance at CP-4</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/verifier/classify</div>
+        <div class="api-desc">Classify replies & generate handoff notes</div>
+      </div>
+      <div class="api-row">
+        <div class="api-method method-post">POST</div>
+        <div class="api-path">/api/webhooks/inbound</div>
+        <div class="api-desc">Receive callbacks from external services</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT IMPACT -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Real-World Impact</div>
+      <h2 class="section-title">Why This Project Matters</h2>
+      <p class="section-subtitle">Beyond the technical achievements, here's the real-world value our system creates.</p>
+    </div>
+
+    <div class="impact-grid">
+      <div class="impact-card reveal">
+        <div class="impact-icon">⏱️</div>
+        <h4>Saves 95% of Research Time</h4>
+        <p>What took sales reps 30+ minutes per account is now automated in seconds across hundreds of accounts in parallel.</p>
+      </div>
+      <div class="impact-card reveal">
+        <div class="impact-icon">📈</div>
+        <h4>Higher Reply Rates</h4>
+        <p>Personalized AI-crafted messages typically achieve 3–5x higher reply rates than generic templates.</p>
+      </div>
+      <div class="impact-card reveal">
+        <div class="impact-icon">🎯</div>
+        <h4>Better Lead Quality</h4>
+        <p>6-dimensional scoring + buyer intelligence means sales teams only spend time on high-fit prospects.</p>
+      </div>
+      <div class="impact-card reveal">
+        <div class="impact-icon">🔄</div>
+        <h4>Single Source of Truth</h4>
+        <p>Replaces 10+ disconnected tools with one unified platform — saving cost, friction, and confusion.</p>
+      </div>
+      <div class="impact-card reveal">
+        <div class="impact-icon">🛡️</div>
+        <h4>Safe AI Deployment</h4>
+        <p>Human checkpoints ensure quality and prevent the disasters that come with autonomous AI systems.</p>
+      </div>
+      <div class="impact-card reveal">
+        <div class="impact-icon">📚</div>
+        <h4>Learns & Improves</h4>
+        <p>Continuous feedback loops mean campaigns get better over time — not stale like static playbooks.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Section 10 of 10 · Q&A</div>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+      <p class="section-subtitle">Click any question to expand the answer.</p>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-question">What does "agentic" mean in "Agentic ABM"?</div>
+        <div class="faq-answer">
+          <p>"Agentic" means the system uses <strong>autonomous AI agents</strong> — small, specialized AI programs that each do one job well and pass results to the next agent. Instead of one big AI doing everything, we have a coordinated team of agents working together. This is the modern way to build production AI systems.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">Why use both Claude AND GPT-4o-mini? Isn't one enough?</div>
+        <div class="faq-answer">
+          <p>We use both for <strong>reliability and quality</strong>. Claude is typically better at nuanced, creative writing — perfect for personalized outreach. GPT-4o-mini is faster and cheaper, ideal as a fallback if Claude is rate-limited or down. Dual-LLM support means our system stays online even if one provider has an outage.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">What happens if the AI generates a bad message?</div>
+        <div class="faq-answer">
+          <p>That's exactly what <strong>Checkpoint 3 (CP-3)</strong> is for. Before any message is sent, both an operator and the client review and approve it. Bad outputs get rejected, edited, and the feedback refines the prompt template. The system literally learns from mistakes.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">How does the system avoid getting users flagged as spam?</div>
+        <div class="faq-answer">
+          <p>Multiple safeguards:</p>
+          <ul>
+            <li><strong>Daily quotas</strong> — limit sends per day (e.g., max 50 emails)</li>
+            <li><strong>Circuit breakers</strong> — auto-pause if bounce rate spikes</li>
+            <li><strong>Personalization</strong> — each message is unique, not bulk-sent</li>
+            <li><strong>Multi-channel pacing</strong> — spreads engagement across email/LinkedIn/SMS</li>
+            <li><strong>Rate limiting</strong> — respects API provider limits</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">What if I don't have API keys for Apollo, Crunchbase, etc.?</div>
+        <div class="faq-answer">
+          <p>The system gracefully degrades. Each API key is optional — if you don't have one, that data source is skipped. We also support <strong>CSV upload</strong> for existing prospect lists, and a <strong>Mock transport</strong> for the campaign agent so you can test the full workflow without spending money on APIs.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">Why FastAPI instead of Django or Flask?</div>
+        <div class="faq-answer">
+          <p>FastAPI offers three killer features for our use case:</p>
+          <ul>
+            <li><strong>Native async support</strong> — critical for calling multiple AI APIs in parallel</li>
+            <li><strong>Auto-generated Swagger docs</strong> — every endpoint documented automatically</li>
+            <li><strong>Pydantic integration</strong> — type-safe request/response validation built-in</li>
+          </ul>
+          <p>It's the fastest-growing Python web framework for good reason.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">Why React + Vite instead of Next.js?</div>
+        <div class="faq-answer">
+          <p>Our use case is a <strong>client-side dashboard application</strong>, not a content-heavy site needing SSR. Vite gives us instant hot-reload development experience and lightning-fast builds. Next.js would be overkill and add complexity we don't need.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">How do I run this project locally?</div>
+        <div class="faq-answer">
+          <p>Three terminal commands:</p>
+          <ul>
+            <li><strong>Backend:</strong> <code>cd backend && uvicorn backend.main:app --reload</code></li>
+            <li><strong>Frontend:</strong> <code>cd frontend && npm run dev</code></li>
+            <li><strong>Redis (optional):</strong> <code>docker-compose up -d</code></li>
+          </ul>
+          <p>Then visit <code>localhost:5173</code> for the UI and <code>localhost:8000/docs</code> for API documentation.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">Is this production-ready? Can a real company use it today?</div>
+        <div class="faq-answer">
+          <p>The core architecture is production-grade — type-safe code, comprehensive tests, human checkpoints, circuit breakers, audit logs. However, real production deployment would need: SSL certificates, authentication (currently demo-level), monitoring/alerting (Datadog, etc.), and compliance reviews (GDPR, CAN-SPAM). The foundation is solid; remaining work is operational, not architectural.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question">What was the hardest part of building this?</div>
+        <div class="faq-answer">
+          <p>The hardest challenge was <strong>balancing AI autonomy with human control</strong>. Pure AI automation is fast but risky; pure manual is safe but slow. Designing the 4-checkpoint architecture took multiple iterations to find the right balance — enough AI to save time, enough human oversight to prevent disasters. Getting the agent communication patterns right (clean inputs/outputs, error handling, retries) was also non-trivial.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">Bonus · Reference</div>
+      <h2 class="section-title">Glossary of Terms</h2>
+      <p class="section-subtitle">Quick definitions for technical and domain-specific terms used throughout this project.</p>
+    </div>
+
+    <div class="glossary-grid">
+      <div class="glossary-item reveal">
+        <div class="glossary-term">ABM</div>
+        <div class="glossary-def">Account-Based Marketing — B2B strategy targeting specific high-value accounts with personalized campaigns.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">ICP</div>
+        <div class="glossary-def">Ideal Customer Profile — definition of your perfect customer (industry, size, etc.).</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Agent</div>
+        <div class="glossary-def">A specialized AI program with a specific job within a larger workflow.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">LLM</div>
+        <div class="glossary-def">Large Language Model — AI like Claude or GPT that understands and generates human language.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Checkpoint (CP)</div>
+        <div class="glossary-def">A human review gate in the workflow where AI must wait for approval before continuing.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">REST API</div>
+        <div class="glossary-def">Standard way for frontend and backend to communicate via HTTP requests.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Webhook</div>
+        <div class="glossary-def">A callback URL — external services notify us when events happen (e.g., email opened).</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Circuit Breaker</div>
+        <div class="glossary-def">A safety pattern that auto-stops a process when too many errors occur.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">TTL</div>
+        <div class="glossary-def">Time To Live — how long cached data is valid before being deleted (e.g., 7 days).</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">B2B</div>
+        <div class="glossary-def">Business-to-Business — when a company sells to other companies (vs. consumers).</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">CRM</div>
+        <div class="glossary-def">Customer Relationship Management — software like Salesforce that tracks sales pipelines.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">JSON Schema</div>
+        <div class="glossary-def">A way to define the shape of data, used for validation and contracts.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Prompt Template</div>
+        <div class="glossary-def">A pre-written instruction for an LLM with placeholders for dynamic data.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Quota</div>
+        <div class="glossary-def">A limit on how many actions can occur in a time period (e.g., 50 emails/day).</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Persona</div>
+        <div class="glossary-def">A representation of a buyer — their role, pain points, motivations, and goals.</div>
+      </div>
+      <div class="glossary-item reveal">
+        <div class="glossary-term">Multi-tier</div>
+        <div class="glossary-def">Graceful fallback system — tries the best option first, then alternatives if it fails.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-title">🎯 ABM Engine</div>
+  <p class="footer-text">
+    A production-grade demonstration of <strong>agentic AI workflows</strong> solving a real-world business problem —
+    automating account-based marketing from discovery to sales handoff while keeping humans firmly in control
+    through strategic checkpoint architecture.
+  </p>
+
+  <p style="color:var(--accent); font-size:18px; margin-top:30px; font-weight:600;">
+    Thank you for taking the time to learn about our project! 🙏
+  </p>
+
+  <div class="footer-info">
+    <span>📅 May 2026</span>
+    <span>🌿 feature/Auggy</span>
+    <span>🐍 Python 3.10+</span>
+    <span>⚛️ Node.js 18+</span>
+    <span>✨ Phase 3-5 Complete</span>
+  </div>
+  <p style="margin-top:30px; color:var(--muted); font-size:13px;">
+    Final Year Project • Built with ❤️ and lots of ☕
+  </p>
+</footer>
+
+<script>
+  // ============ STAR BACKGROUND ============
+  const starsContainer = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.width = Math.random() * 3 + 'px';
+    star.style.height = star.style.width;
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    star.style.animationDelay = Math.random() * 2 + 's';
+    starsContainer.appendChild(star);
+  }
+
+  // ============ SCROLL REVEAL ============
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('active');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ============ COUNTER ANIMATION ============
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const target = parseInt(el.getAttribute('data-target'));
+        let count = 0;
+        const increment = target / 40;
+        const updateCount = () => {
+          count += increment;
+          if (count < target) {
+            el.textContent = Math.ceil(count);
+            requestAnimationFrame(updateCount);
+          } else {
+            el.textContent = target + (target >= 7 ? '+' : '');
+          }
+        };
+        updateCount();
+        counterObserver.unobserve(el);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('[data-target]').forEach(el => counterObserver.observe(el));
+
+  // ============ PARALLAX ORBS ============
+  document.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth - 0.5) * 30;
+    const y = (e.clientY / window.innerHeight - 0.5) * 30;
+    const o1 = document.querySelector('.orb-1');
+    const o2 = document.querySelector('.orb-2');
+    const o3 = document.querySelector('.orb-3');
+    if (o1) o1.style.transform = `translate(${x}px, ${y}px)`;
+    if (o2) o2.style.transform = `translate(${-x}px, ${-y}px)`;
+    if (o3) o3.style.transform = `translate(${x * 0.5}px, ${-y * 0.5}px)`;
+  });
+
+  // ============ FAQ TOGGLE ============
+  document.querySelectorAll('.faq-question').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.parentElement;
+      const isActive = item.classList.contains('active');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+      if (!isActive) item.classList.add('active');
+    });
+  });
+
+  // ============ READING PROGRESS BAR ============
+  const progressBar = document.getElementById('progressBar');
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = (scrollTop / docHeight) * 100;
+    progressBar.style.width = progress + '%';
+  });
+
+  // ============ SMOOTH NAV HIGHLIGHT ============
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(sec => {
+      const top = sec.offsetTop - 150;
+      if (window.scrollY >= top) current = sec.getAttribute('id');
+    });
+    navLinks.forEach(link => {
+      link.style.color = '';
+      if (link.getAttribute('href') === '#' + current) {
+        link.style.color = 'var(--accent)';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

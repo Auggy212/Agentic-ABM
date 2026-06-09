@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/campaign_run.schema.json",
+  "title": "CampaignRun",
+  "description": "Phase 5 Campaign agent run record. One row per CampaignAgent.run() invocation. Aggregates send attempts, halts, and quota warnings.",
+  "type": "object",
+  "required": [
+    "run_id",
+    "client_id",
+    "started_at",
+    "finished_at",
+    "status",
+    "total_messages",
+    "total_sent",
+    "total_failed",
+    "total_pending",
+    "halted",
+    "halt_reason",
+    "quota_warnings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "run_id": {"type": "string", "format": "uuid"},
+    "client_id": {"type": "string", "format": "uuid"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": ["string", "null"], "format": "date-time"},
+    "status": {"type": "string", "enum": ["RUNNING", "COMPLETED", "HALTED", "FAILED"]},
+    "total_messages": {"type": "integer", "minimum": 0},
+    "total_sent": {"type": "integer", "minimum": 0},
+    "total_failed": {"type": "integer", "minimum": 0},
+    "total_pending": {"type": "integer", "minimum": 0},
+    "halted": {"type": "boolean"},
+    "halt_reason": {"type": ["string", "null"]},
+    "quota_warnings": {"type": "array", "items": {"type": "object"}}
+  }
+}

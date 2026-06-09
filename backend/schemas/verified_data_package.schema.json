@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/verified_data_package.schema.json",
+  "title": "VerifiedDataPackage",
+  "description": "Pipeline-level wrapper for all Phase 3 verification results in a client run.",
+  "type": "object",
+  "required": [
+    "client_id",
+    "generated_at",
+    "verifications",
+    "per_source_breakdown",
+    "aggregate",
+    "quota_usage",
+    "meets_deliverability_target",
+    "target_miss_diagnosis"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verifications": {
+      "type": "array",
+      "items": {
+        "$ref": "https://abm-engine/schemas/verification_result.schema.json"
+      }
+    },
+    "per_source_breakdown": {
+      "$ref": "#/$defs/PerSourceBreakdown"
+    },
+    "aggregate": {
+      "$ref": "#/$defs/Aggregate"
+    },
+    "quota_usage": {
+      "$ref": "#/$defs/QuotaUsage"
+    },
+    "meets_deliverability_target": {
+      "type": "boolean",
+      "description": "true when aggregate.deliverability_rate >= 0.9"
+    },
+    "target_miss_diagnosis": {
+      "type": ["string", "null"],
+      "description": "Only populated when the deliverability target is missed."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "aggregate": {
+            "properties": {
+              "deliverability_rate": {
+                "type": "number",
+                "exclusiveMaximum": 0.9
+              }
+            },
+            "required": ["deliverability_rate"]
+          }
+        },
+        "required": ["aggregate"]
+      },
+      "then": {
+        "properties": {
+          "meets_deliverability_target": { "const": false },
+          "target_miss_diagnosis": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["meets_deliverability_target", "target_miss_diagnosis"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "aggregate": {
+            "properties": {
+              "deliverability_rate": {
+                "type": "number",
+                "minimum": 0.9
+              }
+            },
+            "required": ["deliverability_rate"]
+          }
+        },
+        "required": ["aggregate"]
+      },
+      "then": {
+        "properties": {
+          "meets_deliverability_target": { "const": true },
+          "target_miss_diagnosis": { "type": "null" }
+        },
+        "required": ["meets_deliverability_target", "target_miss_diagnosis"]
+      }
+    }
+  ],
+  "$defs": {
+    "SourceBreakdown": {
+      "type": "object",
+      "required": ["total", "valid", "invalid", "pass_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      }
+    },
+    "PerSourceBreakdown": {
+      "type": "object",
+      "required": ["apollo", "hunter", "clay", "linkedin_manual"],
+      "additionalProperties": false,
+      "properties": {
+        "apollo": { "$ref": "#/$defs/SourceBreakdown" },
+        "hunter": { "$ref": "#/$defs/SourceBreakdown" },
+        "clay": {
+          "oneOf": [
+            { "$ref": "#/$defs/SourceBreakdown" },
+            { "type": "null" }
+          ]
+        },
+        "linkedin_manual": {
+          "oneOf": [
+            { "$ref": "#/$defs/SourceBreakdown" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "Aggregate": {
+      "type": "object",
+      "required": [
+        "total_contacts",
+        "valid_emails",
+        "invalid_emails",
+        "catch_all",
+        "risky",
+        "not_found",
+        "deliverability_rate",
+        "linkedin_reachable_rate",
+        "linkedin_authoritative_rate",
+        "website_reachable_rate",
+        "title_mismatches_resolved",
+        "job_changes_verified"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_contacts": { "type": "integer", "minimum": 0 },
+        "valid_emails": { "type": "integer", "minimum": 0 },
+        "invalid_emails": { "type": "integer", "minimum": 0 },
+        "catch_all": { "type": "integer", "minimum": 0 },
+        "risky": { "type": "integer", "minimum": 0 },
+        "not_found": { "type": "integer", "minimum": 0 },
+        "deliverability_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "linkedin_reachable_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "linkedin_authoritative_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Share of LinkedIn checks that returned non-999"
+        },
+        "website_reachable_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "title_mismatches_resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "job_changes_verified": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "QuotaUsage": {
+      "type": "object",
+      "required": [
+        "neverbounce_used_this_run",
+        "zerobounce_used_this_run",
+        "hunter_used_this_run",
+        "neverbounce_remaining",
+        "zerobounce_remaining",
+        "hunter_remaining"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "neverbounce_used_this_run": { "type": "integer", "minimum": 0 },
+        "zerobounce_used_this_run": { "type": "integer", "minimum": 0 },
+        "hunter_used_this_run": { "type": "integer", "minimum": 0 },
+        "neverbounce_remaining": { "type": "integer", "minimum": 0 },
+        "zerobounce_remaining": { "type": "integer", "minimum": 0 },
+        "hunter_remaining": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

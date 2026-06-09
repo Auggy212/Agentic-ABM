@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/buyer_intel_package.schema.json",
+  "title": "BuyerIntelPackage",
+  "description": "Wraps the full buying-committee enrichment for all accounts in a client run. Produced by the Persona Builder agent in Phase 2.",
+  "type": "object",
+  "required": ["client_id", "generated_at", "accounts", "meta"],
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Client/tenant UUID from MasterContext.meta.client_id"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this package was generated"
+    },
+    "accounts": {
+      "type": "object",
+      "description": "Map of apex domain → array of BuyerProfile. Max 5 contacts per account.",
+      "additionalProperties": {
+        "type": "array",
+        "maxItems": 5,
+        "items": {
+          "$ref": "https://abm-engine/schemas/buyer_profile.schema.json"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "total_accounts_processed",
+        "total_contacts_found",
+        "contacts_per_account_avg",
+        "hunter_quota_used",
+        "apollo_quota_used",
+        "mismatches_flagged"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_accounts_processed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of ICP accounts for which contact enrichment was attempted"
+        },
+        "total_contacts_found": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total BuyerProfile records returned across all accounts"
+        },
+        "contacts_per_account_avg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Mean number of contacts per processed account"
+        },
+        "hunter_quota_used": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of Hunter.io API credits consumed in this run"
+        },
+        "apollo_quota_used": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of Apollo.io export credits consumed in this run"
+        },
+        "mismatches_flagged": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of contacts where title_mismatch_flag=true, requiring Phase 3 reconciliation"
+        }
+      }
+    }
+  }
+}

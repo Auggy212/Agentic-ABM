@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/prompt_template.schema.json",
+  "title": "PromptTemplate",
+  "description": "A versioned Storyteller prompt template. Only one template per (channel, tier_target, sequence_position) slot may be active at a time — enforced at the DB layer with a partial unique index.",
+  "type": "object",
+  "required": [
+    "template_id",
+    "channel",
+    "tier_target",
+    "sequence_position",
+    "engine_target",
+    "system_prompt",
+    "user_prompt_template",
+    "max_tokens",
+    "temperature",
+    "active",
+    "version",
+    "created_at",
+    "deprecated_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "template_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier, e.g. 'linkedin_dm_t1_pos0_claude_v1'"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "LINKEDIN_CONNECTION",
+        "LINKEDIN_DM",
+        "EMAIL",
+        "WHATSAPP",
+        "REDDIT_STRATEGY_NOTE"
+      ]
+    },
+    "tier_target": {
+      "type": "string",
+      "enum": ["TIER_1", "TIER_2", "TIER_3", "ALL"]
+    },
+    "sequence_position": {"type": "integer", "minimum": 0},
+    "engine_target": {
+      "type": "string",
+      "enum": ["ANTHROPIC_CLAUDE", "OPENAI_GPT_4O_MINI", "ANY"]
+    },
+    "system_prompt": {"type": "string", "minLength": 1},
+    "user_prompt_template": {
+      "type": "string",
+      "minLength": 1,
+      "description": "May contain {{placeholder}} tokens such as {{account_company_name}}"
+    },
+    "max_tokens": {"type": "integer", "minimum": 1},
+    "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+    "active": {"type": "boolean"},
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver"
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "deprecated_at": {
+      "anyOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    }
+  }
+}

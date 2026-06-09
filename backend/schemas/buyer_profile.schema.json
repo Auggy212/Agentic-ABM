@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/buyer_profile.schema.json",
+  "title": "BuyerProfile",
+  "description": "A single contact within a buying committee, produced by the Persona Builder agent in Phase 2.",
+  "type": "object",
+  "required": [
+    "contact_id",
+    "account_domain",
+    "full_name",
+    "first_name",
+    "last_name",
+    "current_title",
+    "apollo_title",
+    "title_mismatch_flag",
+    "seniority",
+    "department",
+    "email_status",
+    "tenure_current_role_months",
+    "tenure_current_company_months",
+    "past_experience",
+    "recent_activity",
+    "job_change_signal",
+    "committee_role",
+    "committee_role_confidence",
+    "committee_role_reasoning",
+    "inferred_pain_points",
+    "source",
+    "enriched_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this contact"
+    },
+    "account_domain": {
+      "type": "string",
+      "description": "FK to icp_account.domain — apex domain of the parent account"
+    },
+    "full_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "first_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "last_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_title": {
+      "type": "string",
+      "description": "Title from the most-reliable available source (may differ from apollo_title)"
+    },
+    "apollo_title": {
+      "type": "string",
+      "description": "Raw title exactly as returned by Apollo — Phase 3 Verifier reconciles against current_title"
+    },
+    "title_mismatch_flag": {
+      "type": "boolean",
+      "description": "true when apollo_title differs from current_title as provided by another source"
+    },
+    "seniority": {
+      "type": "string",
+      "enum": ["C_SUITE", "VP", "DIRECTOR", "MANAGER", "INDIVIDUAL_CONTRIBUTOR", "UNKNOWN"]
+    },
+    "department": {
+      "type": "string",
+      "description": "Functional department, e.g. 'Sales', 'Marketing', 'Engineering'"
+    },
+    "email": {
+      "type": ["string", "null"],
+      "description": "Work email address or null if not found"
+    },
+    "email_status": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "VALID", "INVALID", "CATCH_ALL", "RISKY", "NOT_FOUND"],
+      "description": "Email validity status. Defaults to UNVERIFIED in Phase 2; Phase 3 NeverBounce/Hunter sets the final value.",
+      "default": "UNVERIFIED"
+    },
+    "phone": {
+      "type": ["string", "null"],
+      "description": "Direct-dial or mobile number or null"
+    },
+    "linkedin_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "LinkedIn profile URL or null"
+    },
+    "tenure_current_role_months": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "const": "not_found" }
+      ],
+      "description": "Months in current role, or 'not_found'"
+    },
+    "tenure_current_company_months": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "const": "not_found" }
+      ],
+      "description": "Total months at current company, or 'not_found'"
+    },
+    "past_experience": {
+      "type": "array",
+      "maxItems": 3,
+      "description": "Up to 3 prior roles. Empty array when not available.",
+      "items": {
+        "type": "object",
+        "required": ["company", "title", "start_date", "end_date"],
+        "additionalProperties": false,
+        "properties": {
+          "company": { "type": "string" },
+          "title": { "type": "string" },
+          "start_date": {
+            "type": "string",
+            "description": "YYYY-MM or 'not_found'"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "YYYY-MM, 'present', or 'not_found'"
+          }
+        }
+      }
+    },
+    "recent_activity": {
+      "type": "array",
+      "description": "LinkedIn activity from PhantomBuster. ALWAYS [] in Phase 2 — Apollo does not expose this. Phase 3 backfills via PhantomBuster retry.",
+      "items": {
+        "type": "object",
+        "required": ["type", "content_summary", "posted_at", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["post", "comment", "like"]
+          },
+          "content_summary": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "posted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "job_change_signal": {
+      "type": "boolean",
+      "description": "true when current role started within the last 6 months — indicates a potential buying window"
+    },
+    "committee_role": {
+      "type": "string",
+      "enum": ["DECISION_MAKER", "CHAMPION", "BLOCKER", "INFLUENCER"],
+      "description": "Inferred buying committee role assigned by Phase 2 Role Mapper"
+    },
+    "committee_role_confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence score [0.0–1.0] for the committee_role assignment"
+    },
+    "committee_role_reasoning": {
+      "type": "string",
+      "description": "Short explanation of why this committee_role was assigned"
+    },
+    "inferred_pain_points": {
+      "type": "array",
+      "description": "Pain points inferred for this contact. Each is tagged [INFERRED] for CP2 review.",
+      "items": {
+        "type": "object",
+        "required": ["pain_point", "source", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "pain_point": {
+            "type": "string",
+            "description": "The inferred pain, tagged [INFERRED] by convention"
+          },
+          "source": {
+            "type": "string",
+            "description": "Evidence source — e.g. 'linkedin_post', 'job_description', 'master_context'"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": ["APOLLO", "CLAY", "LINKEDIN_MANUAL"],
+      "description": "Enrichment source. Phase 2 will be APOLLO almost exclusively."
+    },
+    "enriched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this profile was last enriched"
+    }
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abm-engine/schemas/messaging_package.schema.json",
+  "title": "MessagingPackage",
+  "description": "Wraps all Storyteller-generated messages for one client across all CP2-approved contacts. One package per Storyteller run.",
+  "type": "object",
+  "required": [
+    "client_id",
+    "generated_at",
+    "messages",
+    "by_account",
+    "aggregate",
+    "generation_costs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {"type": "string", "format": "uuid"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "messages": {
+      "type": "array",
+      "items": {"$ref": "https://abm-engine/schemas/message.schema.json"}
+    },
+    "by_account": {
+      "type": "object",
+      "description": "Map of account_domain -> per-account counts and approval roll-up.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "contact_count",
+          "message_count",
+          "all_validated",
+          "all_approved"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "contact_count": {"type": "integer", "minimum": 0},
+          "message_count": {"type": "integer", "minimum": 0},
+          "all_validated": {"type": "boolean"},
+          "all_approved": {"type": "boolean"}
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "total_messages",
+        "by_channel",
+        "by_tier",
+        "traceability_pass_rate",
+        "diversity_pass_rate",
+        "hard_failures",
+        "soft_failures"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_messages": {"type": "integer", "minimum": 0},
+        "by_channel": {
+          "type": "object",
+          "required": [
+            "linkedin_connection",
+            "linkedin_dm",
+            "email",
+            "whatsapp",
+            "reddit_strategy_note"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "linkedin_connection": {"type": "integer", "minimum": 0},
+            "linkedin_dm": {"type": "integer", "minimum": 0},
+            "email": {"type": "integer", "minimum": 0},
+            "whatsapp": {"type": "integer", "minimum": 0},
+            "reddit_strategy_note": {"type": "integer", "minimum": 0}
+          }
+        },
+        "by_tier": {
+          "type": "object",
+          "required": ["tier_1", "tier_2", "tier_3"],
+          "additionalProperties": false,
+          "properties": {
+            "tier_1": {"type": "integer", "minimum": 0},
+            "tier_2": {"type": "integer", "minimum": 0},
+            "tier_3": {"type": "integer", "minimum": 0}
+          }
+        },
+        "traceability_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "diversity_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "hard_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of Tier 1 traceability HARD_FAIL messages."
+        },
+        "soft_failures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of Tier 2/3 traceability SOFT_FAIL messages — proceed to review."
+        }
+      }
+    },
+    "generation_costs": {
+      "type": "object",
+      "required": ["claude_total_usd", "gpt_total_usd", "total_usd", "avg_per_message_usd"],
+      "additionalProperties": false,
+      "properties": {
+        "claude_total_usd": {"type": "number", "minimum": 0},
+        "gpt_total_usd": {"type": "number", "minimum": 0},
+        "total_usd": {"type": "number", "minimum": 0},
+        "avg_per_message_usd": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}
