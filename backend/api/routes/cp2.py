@@ -204,6 +204,20 @@ def post_auto_approve(
     return _state_response(state)
 
 
+@router.post("/reset")
+def post_reset(
+    client_id: str = Query(..., description="Client UUID"),
+    reviewer: str = Query(DEFAULT_REVIEWER),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Delete CP2 state and re-open from current buyer profiles + signal reports."""
+    try:
+        state = state_manager.reset_review(client_id=client_id, reviewer=reviewer, db=db)
+    except CP2StateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _state_response(state)
+
+
 @router.get("/audit")
 def get_audit(
     client_id: str = Query(..., description="Client UUID"),

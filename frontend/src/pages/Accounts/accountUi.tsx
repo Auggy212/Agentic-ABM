@@ -21,12 +21,12 @@ export const SCORE_DIMENSIONS: Array<{
   label: string;
   max: number;
 }> = [
-  { key: "industry", label: "Industry", max: 25 },
+  { key: "industry", label: "Industry", max: 10 },
   { key: "company_size", label: "Size", max: 20 },
   { key: "geography", label: "Geo", max: 15 },
   { key: "tech_stack", label: "Tech stack", max: 20 },
   { key: "funding_stage", label: "Funding", max: 10 },
-  { key: "buying_triggers", label: "Triggers", max: 10 },
+  { key: "buying_triggers", label: "Triggers", max: 25 },
 ];
 
 export function TierBadge({ tier, className }: { tier: AccountTier; className?: string }) {

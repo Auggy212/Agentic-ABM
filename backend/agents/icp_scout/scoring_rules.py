@@ -10,6 +10,7 @@ No I/O, no side effects — every function is independently unit-testable.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, timedelta
 from typing import List, Union
@@ -48,7 +49,7 @@ _PARENT_CATEGORIES: dict[str, set[str]] = {
     "logistics": {"supply chain tech", "last-mile delivery", "freight tech",
                   "logistics and supply chain", "transportation", "warehousing"},
     "education": {"edtech", "e-learning", "higher ed tech", "education management",
-                  "education", "e-learning", "primary/secondary education"},
+                  "education", "primary/secondary education"},
     "media": {"media tech", "content tech", "streaming", "media production",
               "broadcast media", "online media"},
     "consulting": {"management consulting", "business consulting", "professional services",
@@ -112,17 +113,16 @@ def score_company_size(
 ) -> float:
     """
     Returns fraction of company_size weight earned.
-      Within ICP range           → 1.0
-      Within 20% of range edges  → 0.5
-      'not_found'                → 0.3   (partial credit — don't penalise missing data)
-      Outside range              → 0.0
+      Within ICP range                 → 1.0
+      Within 20% of range (percentage) → 0.5
+      'not_found'                      → 0.3  (partial credit — don't penalise missing data)
+      Outside range                    → 0.0
     """
     if headcount == "not_found":
         return 0.3
 
     parsed = _parse_employee_range(icp_size_employees)
     if parsed is None:
-        # Range unparseable — give partial credit rather than zero
         return 0.3
 
     lo, hi = parsed
@@ -131,12 +131,9 @@ def score_company_size(
     if lo <= hc <= hi:
         return 1.0
 
-    # 20% tolerance band
-    tolerance = (hi - lo) * 0.20
-    near_lo = lo - tolerance
-    near_hi = hi + tolerance
-
-    if near_lo <= hc < lo or hi < hc <= near_hi:
+    # Percentage-based tolerance: at least 10 employees, at most 20% of the range width
+    tolerance = max(10, (hi - lo) * 0.20)
+    if (lo - tolerance) <= hc < lo or hi < hc <= (hi + tolerance):
         return 0.5
 
     return 0.0
@@ -146,46 +143,101 @@ def score_company_size(
 # Geography helpers
 # ---------------------------------------------------------------------------
 
-# Minimal country normalisation: map common aliases and city+country strings
-# down to a canonical country code or lowercase country name.
 _COUNTRY_ALIASES: dict[str, str] = {
     "us": "united states", "usa": "united states", "u.s.": "united states",
     "u.s.a.": "united states", "america": "united states",
     "uk": "united kingdom", "u.k.": "united kingdom", "britain": "united kingdom",
     "great britain": "united kingdom",
     "uae": "united arab emirates",
-    "eu": "europe",  # kept as-is for region-level matching
+    "eu": "europe",
+    "sg": "singapore",
+    "au": "australia",
+    "ca": "canada",
+    "de": "germany",
+    "fr": "france",
+    "in": "india",
+    "nl": "netherlands",
+    "se": "sweden",
+    "il": "israel",
 }
+
+# Well-known cities that should map to their country (avoids treating city name as country)
+_CITY_TO_COUNTRY: dict[str, str] = {
+    "new york": "united states", "san francisco": "united states", "los angeles": "united states",
+    "chicago": "united states", "austin": "united states", "boston": "united states",
+    "seattle": "united states", "denver": "united states", "atlanta": "united states",
+    "london": "united kingdom", "manchester": "united kingdom",
+    "toronto": "canada", "vancouver": "canada",
+    "berlin": "germany", "munich": "germany",
+    "paris": "france",
+    "amsterdam": "netherlands",
+    "stockholm": "sweden",
+    "tel aviv": "israel",
+    "bangalore": "india", "mumbai": "india", "delhi": "india",
+    "sydney": "australia", "melbourne": "australia",
+    "singapore": "singapore",
+    "dubai": "united arab emirates",
+}
+
+# US state abbreviations
+_US_STATE_RE = re.compile(r"^[A-Z]{2}$")
+
 
 def _extract_country(location: str) -> str:
     """
     Best-effort extraction of a country from a free-text location string.
     Returns lowercased canonical country name.
 
-    Examples:
-      'San Francisco, CA' → 'united states'  (CA treated as US state)
-      'London, UK'        → 'united kingdom'
-      'Toronto, Canada'   → 'canada'
-      'Germany'           → 'germany'
+    Handles:
+      'San Francisco, CA'             → 'united states'
+      'London, UK'                    → 'united kingdom'
+      'Toronto, Canada'               → 'canada'
+      'Germany'                       → 'germany'
+      'Singapore, Singapore'          → 'singapore'
+      'San Francisco Bay Area, CA'    → 'united states'
     """
     loc = location.strip()
-    # If last token after the final comma is a 2-letter string, treat as state/country code
+    if not loc or loc.lower() == "not_found":
+        return ""
+
     parts = [p.strip() for p in loc.split(",")]
-    # Try last segment first (usually country or state abbreviation)
+
+    # Ambiguous 2-letter codes that are both ISO country codes and US state abbreviations.
+    # When they appear after another location part (city or state), treat as US state.
+    _AMBIGUOUS_CODES = {"ca", "in", "de"}
+
+    # Check each part from right to left (country usually last)
     for part in reversed(parts):
         p_lower = part.lower().strip(".")
+
+        # US state abbreviation — checked BEFORE alias for ambiguous codes (e.g. "CA" after
+        # a US city means California, not Canada).
+        if _US_STATE_RE.match(part.strip()):
+            if p_lower in _AMBIGUOUS_CODES and len(parts) > 1:
+                return "united states"
+
+        # Direct alias lookup
         if p_lower in _COUNTRY_ALIASES:
             return _COUNTRY_ALIASES[p_lower]
-        # US state abbreviations: 2 uppercase letters
-        if re.match(r"^[A-Z]{2}$", part.strip()):
-            return "united states"
-        # Longer segment — could be a full country name
-        if len(part.split()) >= 1 and part.lower() not in {"city", "district", "province"}:
-            resolved = _COUNTRY_ALIASES.get(p_lower, p_lower)
-            if resolved != p_lower or len(parts) == 1:
-                return resolved
 
-    return loc.lower()
+        # Unambiguous US state abbreviation (not a known country code)
+        if _US_STATE_RE.match(part.strip()) and p_lower not in _COUNTRY_ALIASES:
+            return "united states"
+
+        # Known city → country
+        if p_lower in _CITY_TO_COUNTRY:
+            return _CITY_TO_COUNTRY[p_lower]
+
+    # Fall back to full string lowercase (handles single-token "Germany", "France" etc.)
+    full_lower = loc.lower()
+    if full_lower in _COUNTRY_ALIASES:
+        return _COUNTRY_ALIASES[full_lower]
+    if full_lower in _CITY_TO_COUNTRY:
+        return _CITY_TO_COUNTRY[full_lower]
+
+    # Last part as-is
+    last = parts[-1].lower().strip(".")
+    return _COUNTRY_ALIASES.get(last, last)
 
 
 def score_geography(account_hq: str, icp_geographies: List[str]) -> float:
@@ -194,9 +246,6 @@ def score_geography(account_hq: str, icp_geographies: List[str]) -> float:
       HQ location matches an ICP geography entry (city or country) → 1.0
       Same country, different city                                  → 0.5
       Different country                                             → 0.0
-
-    ICP geography entries can be city names, country names, or country codes.
-    Matching is case-insensitive.
     """
     account_lower = account_hq.strip().lower()
     account_country = _extract_country(account_hq)
@@ -215,11 +264,9 @@ def score_geography(account_hq: str, icp_geographies: List[str]) -> float:
 
         # Same country after normalisation
         if account_country and geo_country and account_country == geo_country:
-            # ICP entry is country-level when it has no comma (not a "City, Country" string)
             geo_is_country_level = "," not in geo.strip()
             if geo_is_country_level:
                 return 1.0
-            # Both city-level, same country → partial credit
             return 0.5
 
     return 0.0
@@ -229,6 +276,11 @@ def score_geography(account_hq: str, icp_geographies: List[str]) -> float:
 # Tech stack helpers
 # ---------------------------------------------------------------------------
 
+def _tech_words(tech: str) -> set[str]:
+    """Split a tech name into word tokens, normalising hyphens and underscores."""
+    return set(re.split(r"[\s\-_/]+", tech.strip().lower()))
+
+
 def score_tech_stack(
     account_technologies: List[str],
     icp_tech_signals: List[str],
@@ -236,22 +288,29 @@ def score_tech_stack(
     """
     Returns fraction of tech_stack weight earned.
       = (# ICP signals present in account) / (# ICP signals defined)
-      Case-insensitive substring match (both directions).
-      If no ICP signals are defined, return 0.0 (no signal = no score).
-      If account has no tech data, return 0.2 (partial — data missing, not disqualifying).
+
+    Matching requires ALL words in the signal to appear in the tech name
+    (word-boundary level, not arbitrary substring). This prevents "hr" matching
+    "sharepoint" while still matching "hubspot" → "hubspot crm".
+
+    If no ICP signals defined → 0.0.
+    If account has no tech data → 0.2 (data missing, not disqualifying).
     """
     if not icp_tech_signals:
         return 0.0
 
     if not account_technologies:
-        return 0.2  # no tech data available — can't confirm or deny
+        return 0.2
 
-    account_lower = [t.strip().lower() for t in account_technologies]
+    account_word_sets = [_tech_words(t) for t in account_technologies]
     matches = 0
     for signal in icp_tech_signals:
-        sig_lower = signal.strip().lower()
-        # Match if signal is a substring of any tech, or any tech is a substring of signal
-        if any(sig_lower in acc or acc in sig_lower for acc in account_lower):
+        sig_words = _tech_words(signal)
+        # A signal matches if all its words appear in at least one account tech's word set
+        if any(sig_words <= acc_words or acc_words <= sig_words for acc_words in account_word_sets):
+            matches += 1
+        # Fallback: full lowercased signal substring in any full lowercased tech name
+        elif any(signal.strip().lower() in t.strip().lower() for t in account_technologies):
             matches += 1
     return matches / len(icp_tech_signals)
 
@@ -260,7 +319,6 @@ def score_tech_stack(
 # Funding stage helpers
 # ---------------------------------------------------------------------------
 
-# Ordered stages — adjacency is defined by distance of 1 in this sequence
 _STAGE_ORDER: list[str] = [
     "pre-seed",
     "seed",
@@ -269,6 +327,8 @@ _STAGE_ORDER: list[str] = [
     "series c",
     "series d",
     "growth",
+    "series e",
+    "series f",
     "late stage",
     "ipo",
     "public",
@@ -276,21 +336,19 @@ _STAGE_ORDER: list[str] = [
 ]
 
 def _normalise_stage(stage: str) -> str:
-    return stage.strip().lower().replace("_", " ").replace("-", " ")
+    return stage.strip().lower().replace("_", " ")
 
 
 def _stage_index(stage: str) -> int | None:
     n = _normalise_stage(stage)
-    # Exact match first
     for i, s in enumerate(_STAGE_ORDER):
         if n == s:
             return i
-    # Fallback: one contains the other, but guard against "seed" ⊂ "pre-seed"
+    # Only allow prefix match when one is a strict prefix of the other AND they
+    # differ by at least one character — prevents "seed" matching "pre-seed".
     for i, s in enumerate(_STAGE_ORDER):
-        if n in s or s in n:
-            # Avoid false matches like "seed" inside "pre-seed"
-            if n != s and (s.startswith(n) or n.startswith(s)):
-                return i
+        if n != s and (s.startswith(n + " ") or n.startswith(s + " ")):
+            return i
     return None
 
 
@@ -299,11 +357,11 @@ def score_funding_stage(account_stage: str, icp_stages: List[str]) -> float:
     Returns fraction of funding_stage weight earned.
       Exact match (case-insensitive)  → 1.0
       Adjacent stage (distance = 1)   → 0.5
-      not_found / unknown             → 0.3  (data missing, not disqualifying)
+      not_found / unknown             → 0.3
       Otherwise                       → 0.0
     """
     if not account_stage or account_stage.strip().lower() in ("not_found", "unknown", ""):
-        return 0.3  # can't confirm, but don't penalise missing data
+        return 0.3
 
     account_n = _normalise_stage(account_stage)
     icp_normalised = [_normalise_stage(s) for s in icp_stages]
@@ -325,20 +383,24 @@ def score_funding_stage(account_stage: str, icp_stages: List[str]) -> float:
 # Buying trigger helpers
 # ---------------------------------------------------------------------------
 
-_TRIGGER_WINDOW_DAYS = 90
+# Configurable via env var; default 90 days suits mid-market sales cycles.
+_TRIGGER_WINDOW_DAYS: int = int(os.environ.get("BUYING_TRIGGER_WINDOW_DAYS", "90"))
 
 
 def score_buying_triggers(
-    recent_signals: list,  # List of Signal-like objects with signal_type, description, signal_date
+    recent_signals: list,
     icp_buying_triggers: List[str],
     reference_date: date | None = None,
 ) -> float:
     """
-    Returns 1.0 if ANY ICP buying trigger matches a recent signal within the
-    last 90 days. Returns 0.0 otherwise.
+    Returns a fractional score based on how many ICP buying triggers are matched
+    by recent signals within the configured window (default 90 days).
 
-    Matching is case-insensitive substring: a signal matches a trigger if
-    the trigger text appears in the signal's type OR description.
+    Score = (# distinct triggers matched) / (# triggers defined), capped at 1.0.
+    This rewards accounts with multiple matching signals over single-signal matches.
+
+    Matching is word-level: every significant word (>2 chars) in the trigger must
+    appear in the signal text. This avoids false matches from short substring overlaps.
 
     reference_date defaults to today — injectable for deterministic testing.
     """
@@ -348,8 +410,9 @@ def score_buying_triggers(
     cutoff = (reference_date or date.today()) - timedelta(days=_TRIGGER_WINDOW_DAYS)
     triggers_lower = [t.strip().lower() for t in icp_buying_triggers]
 
+    matched_triggers: set[str] = set()
+
     for signal in recent_signals:
-        # Support both Pydantic Signal objects (with aliases) and plain dicts
         if hasattr(signal, "signal_date"):
             sig_date = signal.signal_date
         elif isinstance(signal, dict):
@@ -365,9 +428,8 @@ def score_buying_triggers(
                 continue
 
         if sig_date < cutoff:
-            continue  # outside window
+            continue
 
-        # Build text to match against
         if hasattr(signal, "signal_type"):
             sig_text = f"{signal.signal_type} {signal.description}".lower()
         elif isinstance(signal, dict):
@@ -375,40 +437,23 @@ def score_buying_triggers(
         else:
             continue
 
+        sig_words = set(re.split(r"\W+", sig_text))
+
         for trigger in triggers_lower:
-            # Full phrase match (fastest path)
-            if trigger in sig_text:
-                return 1.0
-            # Stem match: every significant trigger word (>3 chars) must have
-            # a common prefix of >= 4 chars with some word in the signal text,
-            # OR appear as a substring/superset of a signal word.
-            # Handles "hire"↔"hiring" (share "hir" — wait, we need ≥4, but
-            # "hire" and "hiring" share only 3 letters before diverging).
-            # Use ≥3 common prefix for short stems (4-5 char trigger words).
-            trigger_words = [w for w in trigger.split() if len(w) > 3]
-            if not trigger_words:
+            if trigger in matched_triggers:
                 continue
-            sig_words = sig_text.split()
-            def _common_prefix_len(a: str, b: str) -> int:
-                n = min(len(a), len(b))
-                for i in range(n):
-                    if a[i] != b[i]:
-                        return i
-                return n
+            # Full phrase match
+            if trigger in sig_text:
+                matched_triggers.add(trigger)
+                continue
+            # Word-level match: every significant trigger word must appear in signal words
+            trigger_words = [w for w in re.split(r"\W+", trigger) if len(w) > 2]
+            if trigger_words and all(
+                any(tw == sw or sw[:3] == tw[:3] for sw in sig_words if len(sw) >= 3)
+                for tw in trigger_words
+            ):
+                matched_triggers.add(trigger)
 
-            def _word_present(tw: str) -> bool:
-                # substring match
-                if tw in sig_text:
-                    return True
-                min_stem = 3 if len(tw) <= 5 else 4
-                for sw in sig_words:
-                    if _common_prefix_len(tw, sw) >= min_stem:
-                        return True
-                    if tw in sw or sw in tw:
-                        return True
-                return False
-
-            if all(_word_present(tw) for tw in trigger_words):
-                return 1.0
-
-    return 0.0
+    if not matched_triggers:
+        return 0.0
+    return min(1.0, len(matched_triggers) / len(icp_buying_triggers))

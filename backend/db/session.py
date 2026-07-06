@@ -1,12 +1,8 @@
 """
 SQLAlchemy engine + session factory.
 
-Resolution order for the database URL:
-  1. DATABASE_URL environment variable  (PostgreSQL in production)
-  2. Falls back to a local SQLite file   (abm_engine.db in the repo root)
-
-This means the backend starts and works correctly with zero infrastructure —
-no PostgreSQL required for local development.
+Requires DATABASE_URL to be set to a Supabase PostgreSQL connection string:
+  postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
 """
 
 from __future__ import annotations
@@ -14,34 +10,29 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, text
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-_DEFAULT_SQLITE = (
-    f"sqlite:///{Path(__file__).resolve().parent.parent / 'abm_engine.db'}"
-)
+DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
 
-DATABASE_URL: str = os.environ.get("DATABASE_URL", _DEFAULT_SQLITE)
-
-_is_sqlite = DATABASE_URL.startswith("sqlite")
-
-# SQLite needs check_same_thread=False; pool_pre_ping is fine for both.
-_connect_args = {"check_same_thread": False} if _is_sqlite else {}
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is not set. "
+        "Set it to your Supabase PostgreSQL connection string."
+    )
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=not _is_sqlite,   # pre-ping not useful for SQLite
-    connect_args=_connect_args,
+    pool_pre_ping=True,
+    pool_size=3,
+    max_overflow=4,   # hard cap at 7 total — leaves headroom for Supabase's 15-conn limit
+    connect_args={"connect_timeout": 10, "sslmode": "require"},
+    pool_timeout=30,
 )
-
-# Enable WAL mode + foreign keys for SQLite connections
-if _is_sqlite:
-    @event.listens_for(engine, "connect")
-    def _set_sqlite_pragmas(dbapi_conn, _conn_record):
-        cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.execute("PRAGMA foreign_keys=ON")
-        cur.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

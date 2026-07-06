@@ -13,21 +13,21 @@ const ROLE_CONFIG: Record<
 > = {
   DECISION_MAKER: {
     label: "Decision-Maker",
-    bg: "#eef2ff",
-    text: "#4338ca",
-    border: "#c7d2fe",
+    bg: "rgba(0,212,255,0.08)",
+    text: "var(--acc-300)",
+    border: "rgba(0,212,255,0.25)",
   },
   CHAMPION: {
     label: "Champion",
-    bg: "#f0fdf4",
-    text: "#15803d",
-    border: "#bbf7d0",
+    bg: "rgba(0,255,150,0.08)",
+    text: "var(--good-500)",
+    border: "rgba(0,255,150,0.25)",
   },
   BLOCKER: {
     label: "Blocker",
-    bg: "#fef2f2",
-    text: "#b91c1c",
-    border: "#fecaca",
+    bg: "rgba(255,70,70,0.08)",
+    text: "var(--bad-500)",
+    border: "rgba(255,70,70,0.25)",
   },
   INFLUENCER: {
     label: "Influencer",
@@ -43,11 +43,11 @@ const EMAIL_STATUS_CONFIG: Record<
   EmailStatus,
   { label: string; color: string; bg: string }
 > = {
-  VALID: { label: "Valid", color: "#15803d", bg: "#f0fdf4" },
-  CATCH_ALL: { label: "Catch-all", color: "#b45309", bg: "#fffbeb" },
-  UNVERIFIED: { label: "Unverified", color: "var(--text-3)", bg: "var(--surface-2)" },
-  INVALID: { label: "Invalid", color: "#b91c1c", bg: "#fef2f2" },
-  NOT_FOUND: { label: "Not found", color: "var(--text-3)", bg: "var(--surface-2)" },
+  VALID:      { label: "Valid",       color: "var(--good-500)", bg: "rgba(0,255,150,0.08)"  },
+  CATCH_ALL:  { label: "Catch-all",   color: "var(--warn-500)", bg: "rgba(255,215,0,0.08)"  },
+  UNVERIFIED: { label: "Unverified",  color: "var(--text-3)",   bg: "var(--surface-2)"      },
+  INVALID:    { label: "Invalid",     color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)"  },
+  NOT_FOUND:  { label: "Not found",   color: "var(--text-3)",   bg: "var(--surface-2)"      },
 };
 
 function EmailBadge({ status }: { status: EmailStatus }) {
@@ -167,7 +167,7 @@ function RoleChangeModal({ open, currentRole, contactId, onClose }: RoleModalPro
 
         <div>
           <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
-            Reason <span style={{ color: "#b91c1c" }}>*</span>
+            Reason <span style={{ color: "var(--bad-500)" }}>*</span>
           </label>
           <textarea
             value={reason}
@@ -186,7 +186,7 @@ function RoleChangeModal({ open, currentRole, contactId, onClose }: RoleModalPro
             }}
           />
           {!reason.trim() && (
-            <div style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--bad-500)", marginTop: 4 }}>
               A reason is required before submitting.
             </div>
           )}
@@ -270,9 +270,9 @@ export default function BuyerCard({ contact }: BuyerCardProps) {
                   fontWeight: 600,
                   padding: "2px 6px",
                   borderRadius: 4,
-                  background: "#eff6ff",
-                  color: "#1d4ed8",
-                  border: "1px solid #bfdbfe",
+                  background: "rgba(0,212,255,0.08)",
+                  color: "var(--acc-300)",
+                  border: "1px solid rgba(0,212,255,0.25)",
                 }}
               >
                 ✏ Manually corrected
@@ -312,7 +312,7 @@ export default function BuyerCard({ contact }: BuyerCardProps) {
                   right: 0,
                   top: "100%",
                   marginTop: 4,
-                  background: "white",
+                  background: "var(--surface)",
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
@@ -494,8 +494,8 @@ export default function BuyerCard({ contact }: BuyerCardProps) {
                   key={i}
                   style={{
                     padding: "8px 12px",
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
+                    background: "rgba(255,70,70,0.08)",
+                    border: "1px solid rgba(255,70,70,0.25)",
                     borderRadius: 6,
                     fontSize: 12,
                   }}
@@ -505,8 +505,8 @@ export default function BuyerCard({ contact }: BuyerCardProps) {
                       style={{
                         fontSize: 10,
                         fontWeight: 700,
-                        color: "#b91c1c",
-                        background: "#fee2e2",
+                        color: "var(--bad-500)",
+                        background: "rgba(255,70,70,0.15)",
                         padding: "1px 5px",
                         borderRadius: 3,
                       }}

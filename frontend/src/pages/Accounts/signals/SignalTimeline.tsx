@@ -4,8 +4,8 @@ import type { AccountSignal, IntentLevel, SignalSource } from "./types";
 // ── Intent styling ────────────────────────────────────────────────────────────
 
 const INTENT_CONFIG: Record<IntentLevel, { label: string; color: string; bg: string; border: string }> = {
-  HIGH: { label: "High", color: "#b91c1c", bg: "#fef2f2", border: "#fecaca" },
-  MEDIUM: { label: "Medium", color: "#b45309", bg: "#fffbeb", border: "#fde68a" },
+  HIGH:   { label: "High",   color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  border: "rgba(255,70,70,0.25)"  },
+  MEDIUM: { label: "Medium", color: "var(--warn-500)", bg: "rgba(255,215,0,0.08)", border: "rgba(255,215,0,0.25)" },
   LOW: { label: "Low", color: "var(--text-3)", bg: "var(--surface-2)", border: "var(--border)" },
 };
 
@@ -17,6 +17,7 @@ const SOURCE_CONFIG: Record<SignalSource, { label: string; icon: string }> = {
   G2: { label: "G2", icon: "⭐" },
   CRUNCHBASE: { label: "Crunchbase", icon: "💰" },
   REDDIT: { label: "Reddit", icon: "🟠" },
+  WEB_SCRAPE: { label: "Web", icon: "🌐" },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -32,6 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   ICP_MATCH_NO_SIGNAL: "ICP Match",
   INDUSTRY_EVENT: "Industry Event",
   COMPETITOR_FOLLOW: "Competitor Follow",
+  OTHER_NEWS: "Other News",
 };
 
 // ── Relative time ─────────────────────────────────────────────────────────────
@@ -54,8 +56,8 @@ function absoluteTime(iso: string): string {
 
 function SignalEntry({ signal }: { signal: AccountSignal }) {
   const [snippetOpen, setSnippetOpen] = useState(false);
-  const intent = INTENT_CONFIG[signal.intent_level];
-  const source = SOURCE_CONFIG[signal.source];
+  const intent = INTENT_CONFIG[signal.intent_level] ?? INTENT_CONFIG["LOW"];
+  const source = SOURCE_CONFIG[signal.source] ?? { label: signal.source, icon: "🔍" };
 
   return (
     <div
@@ -109,23 +111,30 @@ function SignalEntry({ signal }: { signal: AccountSignal }) {
 
       {/* Source + snippet */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <a
-          href={signal.source_url}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 11,
-            color: "var(--acc-600)",
-            textDecoration: "none",
-          }}
-        >
-          <span>{source.icon}</span>
-          <span>{source.label}</span>
-          <span>↗</span>
-        </a>
+        {signal.source_url && /^https?:\/\//i.test(signal.source_url) ? (
+          <a
+            href={signal.source_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: "var(--acc-600)",
+              textDecoration: "none",
+            }}
+          >
+            <span>{source.icon}</span>
+            <span>{source.label}</span>
+            <span>↗</span>
+          </a>
+        ) : (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-2)" }}>
+            <span>{source.icon}</span>
+            <span>{source.label}</span>
+          </span>
+        )}
         <button
           onClick={() => setSnippetOpen((v) => !v)}
           style={{

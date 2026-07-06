@@ -50,11 +50,11 @@ export default function BuyersEmpty({ domain }: BuyersEmptyProps) {
         <div
           style={{
             padding: "10px 16px",
-            background: "var(--ok-50, #f0fdf4)",
-            border: "1px solid var(--ok-200, #bbf7d0)",
+            background: "rgba(0,255,150,0.07)",
+            border: "1px solid rgba(0,255,150,0.22)",
             borderRadius: 8,
             fontSize: 13,
-            color: "var(--ok-700, #15803d)",
+            color: "var(--good-500)",
           }}
         >
           Queued — job ID <span style={{ fontFamily: "var(--font-mono)" }}>{discover.data?.job_id}</span>. This
@@ -66,11 +66,11 @@ export default function BuyersEmpty({ domain }: BuyersEmptyProps) {
         <div
           style={{
             padding: "10px 16px",
-            background: "#fef2f2",
-            border: "1px solid #fecaca",
+            background: "rgba(255,70,70,0.08)",
+            border: "1px solid rgba(255,70,70,0.25)",
             borderRadius: 8,
             fontSize: 13,
-            color: "#b91c1c",
+            color: "var(--bad-500)",
           }}
         >
           Failed to queue — check the backend logs.

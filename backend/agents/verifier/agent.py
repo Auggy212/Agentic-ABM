@@ -50,9 +50,12 @@ from backend.schemas.models import (
     WebsiteCheck,
 )
 
+import os
+
 logger = logging.getLogger(__name__)
 
-MAX_CONCURRENT_VERIFICATIONS = 10
+MAX_CONCURRENT_VERIFICATIONS = int(os.environ.get("MAX_CONCURRENT_VERIFICATIONS", "10"))
+_DELIVERABILITY_TARGET = float(os.environ.get("DELIVERABILITY_TARGET", "0.9"))
 
 
 def _now() -> datetime:
@@ -111,7 +114,7 @@ class VerifierAgent:
 
         per_source_breakdown = self._compute_per_source_breakdown(contacts, verifications)
         aggregate = self._compute_aggregate(verifications)
-        meets_target = aggregate.deliverability_rate >= 0.9
+        meets_target = aggregate.deliverability_rate >= _DELIVERABILITY_TARGET
         diagnosis = None if meets_target else diagnose_target_miss(per_source_breakdown)
 
         quota_usage = self._quota_usage(verifications)

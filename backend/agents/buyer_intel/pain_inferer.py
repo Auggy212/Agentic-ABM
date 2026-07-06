@@ -19,9 +19,11 @@ import re
 from backend.agents.icp_scout.sources.apollo import RawContact
 from backend.schemas.models import InferredPainPoint, MasterContext
 
-_MIN_WORD_LEN = 4   # ignore short stop-words when matching
-_TITLE_CONFIDENCE = 0.60
-_DEPT_CONFIDENCE = 0.50
+import os
+
+_MIN_WORD_LEN = 4
+_TITLE_CONFIDENCE = float(os.environ.get("PAIN_INFERER_TITLE_CONFIDENCE", "0.60"))
+_DEPT_CONFIDENCE = float(os.environ.get("PAIN_INFERER_DEPT_CONFIDENCE", "0.50"))
 
 # Roles that are always assumed to experience sales/revenue pain points
 _REVENUE_ROLES = {

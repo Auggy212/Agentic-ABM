@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useApproveCP2 } from "./hooks";
+import { useApproveCP2, useAutoApproveCP2, useResetCP2 } from "./hooks";
 import type { CP2ReviewState } from "./types";
 
 interface Props {
@@ -11,6 +11,8 @@ export default function CP2ApprovalFooter({ clientId, state }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [notes, setNotes] = useState(state.reviewer_notes ?? "");
   const approve = useApproveCP2(clientId);
+  const autoApprove = useAutoApproveCP2(clientId);
+  const reset = useResetCP2(clientId);
 
   const pending = state.aggregate_progress.total_inferred_claims - state.aggregate_progress.reviewed_claims;
   const blocked = state.blockers.length > 0 || pending > 0;
@@ -25,13 +27,32 @@ export default function CP2ApprovalFooter({ clientId, state }: Props) {
           background: "var(--good-50)",
           borderTop: "1px solid var(--good-100)",
           padding: "14px 26px",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
         }}
       >
-        <span style={{ fontSize: 18 }}>✓</span>
-        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--good-700)" }}>
-          CP2 approved — Storyteller is unlocked.
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>✓</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--good-700)" }}>
+            CP2 approved — Storyteller is unlocked.
+          </span>
+        </div>
+        <button
+          type="button"
+          disabled={reset.isPending}
+          onClick={() => {
+            if (window.confirm("Re-open CP2? This will delete the current approval and re-aggregate claims from all current buyer profiles and signal reports.")) {
+              reset.mutate();
+            }
+          }}
+          style={{
+            fontSize: 12, fontWeight: 600, padding: "6px 14px", borderRadius: 8,
+            background: "transparent", color: "var(--good-700)",
+            border: "1px solid var(--good-300)", cursor: reset.isPending ? "wait" : "pointer",
+            opacity: reset.isPending ? 0.6 : 1,
+          }}
+        >
+          {reset.isPending ? "Resetting…" : "Re-open & refresh"}
+        </button>
       </div>
     );
   }
@@ -60,8 +81,8 @@ export default function CP2ApprovalFooter({ clientId, state }: Props) {
             {pending > 0 && (
               <span style={{
                 fontSize: 12, fontWeight: 600,
-                background: "#fef3c7", color: "#92400e",
-                border: "1px solid #fde68a",
+                background: "rgba(255,215,0,0.10)", color: "var(--warn-500)",
+                border: "1px solid rgba(255,215,0,0.28)",
                 borderRadius: 999, padding: "1px 10px",
               }}>
                 ⚠ {pending} pending
@@ -100,27 +121,48 @@ export default function CP2ApprovalFooter({ clientId, state }: Props) {
           />
         </div>
 
-        {/* Right: Approve button */}
-        <button
-          type="button"
-          data-testid="approve-cp2-btn"
-          disabled={blocked}
-          title={blocked ? "Review all claims and accounts before approving" : undefined}
-          onClick={() => setConfirming(true)}
-          style={{
-            minWidth: 180, height: 52, fontSize: 15, fontWeight: 800,
-            borderRadius: 12, border: "none", cursor: blocked ? "not-allowed" : "pointer",
-            background: blocked
-              ? "var(--surface-3)"
-              : "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
-            color: blocked ? "var(--text-mute)" : "#fff",
-            boxShadow: blocked ? "none" : "0 4px 14px rgba(91,80,245,0.35)",
-            transition: "opacity 0.15s",
-            alignSelf: "end",
-          }}
-        >
-          Approve CP2
-        </button>
+        {/* Right: buttons */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+          <button
+            type="button"
+            data-testid="approve-cp2-btn"
+            disabled={blocked}
+            title={blocked ? "Review all claims and accounts before approving" : undefined}
+            onClick={() => setConfirming(true)}
+            style={{
+              minWidth: 180, height: 52, fontSize: 15, fontWeight: 800,
+              borderRadius: 12, border: "none", cursor: blocked ? "not-allowed" : "pointer",
+              background: blocked
+                ? "var(--surface-3)"
+                : "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
+              color: blocked ? "var(--text-mute)" : "#fff",
+              boxShadow: blocked ? "none" : "0 4px 14px rgba(0,212,255,0.35)",
+              transition: "opacity 0.15s",
+            }}
+          >
+            Approve CP2
+          </button>
+          <button
+            type="button"
+            data-testid="auto-approve-cp2-btn"
+            disabled={autoApprove.isPending}
+            onClick={() => {
+              if (window.confirm(`Approve all ${state.aggregate_progress.total_inferred_claims - state.aggregate_progress.reviewed_claims} pending claims and all accounts, then approve CP2?`)) {
+                autoApprove.mutate();
+              }
+            }}
+            style={{
+              minWidth: 180, height: 36, fontSize: 12, fontWeight: 600,
+              borderRadius: 8, cursor: autoApprove.isPending ? "wait" : "pointer",
+              background: "var(--surface-2)",
+              color: "var(--text-2)",
+              border: "1px solid var(--border)",
+              opacity: autoApprove.isPending ? 0.6 : 1,
+            }}
+          >
+            {autoApprove.isPending ? "Approving all…" : "Approve all & unlock"}
+          </button>
+        </div>
       </div>
 
       {/* ── Confirm modal ── */}
@@ -191,7 +233,7 @@ export default function CP2ApprovalFooter({ clientId, state }: Props) {
                   background: "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
                   color: "#fff", border: "none",
                   cursor: approve.isPending ? "wait" : "pointer",
-                  boxShadow: "0 4px 14px rgba(91,80,245,0.3)",
+                  boxShadow: "0 4px 14px rgba(0,212,255,0.3)",
                   opacity: approve.isPending ? 0.7 : 1,
                 }}
               >

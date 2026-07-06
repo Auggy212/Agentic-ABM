@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 HUNTER_API_KEY: str = os.environ.get("HUNTER_API_KEY", "")
 HUNTER_BASE_URL = "https://api.hunter.io/v2"
 HUNTER_SOURCE = "HUNTER"
-HUNTER_MIN_REMAINING_FOR_RELOOKUP = 5
+HUNTER_MIN_REMAINING_FOR_RELOOKUP = int(os.environ.get("HUNTER_MIN_REMAINING", "5"))
 
 
 class EmailVerifierProtocol(Protocol):

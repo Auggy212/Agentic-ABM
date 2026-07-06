@@ -55,3 +55,32 @@ export function useDiscoverSignals() {
     },
   });
 }
+
+export function useSignalRunStatus(clientId: string | undefined) {
+  return useQuery({
+    queryKey: ["signals", "run-status", clientId],
+    enabled: Boolean(clientId),
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data } = await api.get<{ is_running: boolean; job_id?: string }>("/api/signals/run-status", {
+        params: { client_id: clientId },
+      });
+      return data;
+    },
+  });
+}
+
+export function useCancelSignals() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { data } = await api.post("/api/signals/cancel", null, {
+        params: { client_id: clientId },
+      });
+      return data;
+    },
+    onSuccess: (_data, clientId) => {
+      queryClient.invalidateQueries({ queryKey: ["signals", "run-status", clientId] });
+    },
+  });
+}

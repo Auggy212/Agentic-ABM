@@ -126,7 +126,7 @@ def _make_master_context(
             "titles": titles or ["VP Sales", "Head of Sales", "CRO", "VP Marketing"],
             "seniority": ["VP", "C-Suite", "Director"],
             "buying_committee_size": "3-5",
-            "pain_points": pain_points or ["manual prospecting", "poor pipeline visibility"],
+            "pain_points": pain_points if pain_points is not None else ["manual prospecting", "poor pipeline visibility"],
             "unstated_needs": ["time savings", "CRM hygiene"],
         },
         "competitors": [{"name": "6sense", "weaknesses": ["expensive"]}],
@@ -452,7 +452,7 @@ class TestBuyerIntelAgentRun:
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
             patch.object(
-                BuyerIntelAgent, "_persist", return_value=None
+                BuyerIntelAgent, "_persist_one", return_value=None
             ),
             patch(
                 "backend.agents.buyer_intel.agent.verify_email",
@@ -479,7 +479,7 @@ class TestBuyerIntelAgentRun:
     ):
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -503,7 +503,7 @@ class TestBuyerIntelAgentRun:
     ):
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -527,7 +527,7 @@ class TestBuyerIntelAgentRun:
         """Phase 2 reality: recent_activity must be [] for every contact."""
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -553,7 +553,7 @@ class TestBuyerIntelAgentRun:
 
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -583,7 +583,7 @@ class TestBuyerIntelAgentRun:
 
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", return_value=1),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -620,14 +620,14 @@ class TestBuyerIntelAgentRun:
 
         persisted_state: dict = {}
 
-        def mock_persist(*, client_id, run_id, package_accounts, quota_warnings,
+        def mock_persist(*, client_id, run_id, quota_warnings,
                          pending_domains, total_contacts, total_accounts, hunter_quota_used):
             persisted_state["quota_warnings"] = quota_warnings
             persisted_state["pending_domains"] = pending_domains
 
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", side_effect=mock_check_and_increment),
-            patch.object(BuyerIntelAgent, "_persist", side_effect=mock_persist),
+            patch.object(BuyerIntelAgent, "_persist_run", side_effect=mock_persist),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):
@@ -667,7 +667,7 @@ class TestBuyerIntelAgentRun:
 
         with (
             patch("backend.agents.buyer_intel.agent.check_and_increment", side_effect=mock_check_and_increment),
-            patch.object(BuyerIntelAgent, "_persist", return_value=None),
+            patch.object(BuyerIntelAgent, "_persist_one", return_value=None),
             patch("backend.agents.buyer_intel.agent.verify_email", new=AsyncMock(return_value=EmailStatus.VALID)),
             patch("backend.agents.buyer_intel.agent.enrich_contact", new=AsyncMock(return_value=MagicMock(direct_phone=_NF, work_email=_NF))),
         ):

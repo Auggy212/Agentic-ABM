@@ -1,5 +1,5 @@
 """
-Crunchbase signal source — fetches recent funding events (last 60 days).
+Crunchbase signal source — fetches recent funding events (last 90 days).
 
 Reuses the existing icp_scout Crunchbase module's HTTP pattern but targets
 the funding rounds endpoint for the signal agent's purpose.
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 CRUNCHBASE_API_KEY = os.environ.get("CRUNCHBASE_API_KEY", "")
 CRUNCHBASE_BASE_URL = "https://api.crunchbase.com/api/v4"
 
-_LOOKBACK_DAYS = 60
+_LOOKBACK_DAYS = int(os.environ.get("SIGNAL_INTEL_FUNDING_MAX_AGE_DAYS", "90"))
 
 
 class CrunchbaseSignalSource(BaseSignalSource):
@@ -39,19 +39,19 @@ class CrunchbaseSignalSource(BaseSignalSource):
         master_context: MasterContext,
     ) -> list[AccountSignal]:
         if not CRUNCHBASE_API_KEY:
-            logger.warning("CrunchbaseSignalSource: CRUNCHBASE_API_KEY not set")
+            logger.debug("CrunchbaseSignalSource: CRUNCHBASE_API_KEY not set — skipping")
             return []
         try:
             return await self._fetch(domain, company_name)
         except Exception as exc:
-            logger.warning("CrunchbaseSignalSource: failed for domain=%s: %s", domain, exc)
+            logger.warning("CrunchbaseSignalSource: failed for domain=%s: %s: %s", domain, type(exc).__name__, exc)
             return []
 
     async def _fetch(self, domain: str, company_name: str) -> list[AccountSignal]:
         cutoff = datetime.now(timezone.utc) - timedelta(days=_LOOKBACK_DAYS)
         signals: list[AccountSignal] = []
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.get(
                 f"{CRUNCHBASE_BASE_URL}/entities/organizations/{domain.split('.')[0]}",
                 params={

@@ -47,9 +47,9 @@ const ROLE_GROUPS: RoleGroup[] = [
 ];
 
 const GROUP_HEADER_COLORS: Record<CommitteeRole, { accent: string; dim: string }> = {
-  DECISION_MAKER: { accent: "#4338ca", dim: "#eef2ff" },
-  CHAMPION: { accent: "#15803d", dim: "#f0fdf4" },
-  BLOCKER: { accent: "#b91c1c", dim: "#fef2f2" },
+  DECISION_MAKER: { accent: "var(--acc-300)",  dim: "rgba(0,212,255,0.08)"  },
+  CHAMPION:       { accent: "var(--good-500)", dim: "rgba(0,255,150,0.08)"  },
+  BLOCKER:        { accent: "var(--bad-500)",  dim: "rgba(255,70,70,0.08)"  },
   INFLUENCER: { accent: "var(--text-2)", dim: "var(--surface-2)" },
 };
 

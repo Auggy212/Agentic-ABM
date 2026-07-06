@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+import logging
+import threading
 from typing import Any, Dict, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,9 +9,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.agents.cp2.gate import CP2NotApprovedError
-from backend.agents.storyteller.agent import StorytellerAgent
+from backend.agents.storyteller.agent import StorytellerAgent, StorytellerBudgetError
 from backend.db.models import BuyerProfileRecord, MessageRecord, MessagingRunRecord
-from backend.db.session import get_db
+from backend.db.session import SessionLocal, get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/storyteller", tags=["storyteller"])
 
@@ -24,25 +28,43 @@ class RegenerateRequest(BaseModel):
     override_template_id: Optional[str] = None
 
 
+def _run_in_background(client_id: str, scope: Any) -> None:
+    db = SessionLocal()
+    try:
+        package = StorytellerAgent(db).run(client_id, scope)
+        try:
+            from backend.agents.copilot.rag_indexer import post_run_index
+            post_run_index(db, client_id, ["messages"])
+        except Exception:
+            pass
+    except Exception:
+        logger.exception("StorytellerAgent background run failed for client_id=%s", client_id)
+    finally:
+        db.close()
+
+
 @router.post("/generate")
 def generate(body: GenerateRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    # Gate check — must be synchronous so we can return 423 before spawning the thread
+    from backend.agents.cp2.gate import assert_cp2_approved
     try:
-        package = StorytellerAgent(db).run(body.client_id, body.scope)
+        assert_cp2_approved(body.client_id, db)
     except CP2NotApprovedError as exc:
         raise HTTPException(status_code=423, detail=str(exc)) from exc
 
-    # RAG: index generated messages
     try:
-        from backend.agents.copilot.rag_indexer import post_run_index
-        post_run_index(db, body.client_id, ["messages"])
-    except Exception:
-        pass
+        StorytellerAgent(db)  # validates budget env vars before spawning
+    except StorytellerBudgetError as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
 
-    return {
-        "job_id": "sync-local-run",
-        "status": "COMPLETED",
-        "package": package.model_dump(mode="json"),
-    }
+    thread = threading.Thread(
+        target=_run_in_background,
+        args=(body.client_id, body.scope),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"job_id": "background", "status": "RUNNING"}
 
 
 @router.get("/messages")

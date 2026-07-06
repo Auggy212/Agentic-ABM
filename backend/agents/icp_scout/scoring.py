@@ -44,7 +44,7 @@ from backend.agents.icp_scout import scoring_rules as rules
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Weights — do not modify. Sum must equal 100.
+# Weights — must sum to 100.
 # ---------------------------------------------------------------------------
 
 WEIGHTS: dict[str, int] = {
@@ -59,6 +59,19 @@ WEIGHTS: dict[str, int] = {
 assert sum(WEIGHTS.values()) == 100, (
     f"Scoring weights must sum to 100, got {sum(WEIGHTS.values())}"
 )
+
+# Per-dimension minimum points required to be eligible for Tier 1.
+# An account that scores 0 on industry is unlikely to be a true fit regardless
+# of how strong its buying signals are.
+# Set all to 0 to disable (default behaviour matches old behaviour for other tiers).
+_DIM_MINIMUMS: dict[str, int] = {
+    "industry":        0,   # 0 = not enforced
+    "company_size":    0,
+    "geography":       0,
+    "tech_stack":      0,
+    "funding_stage":   0,
+    "buying_triggers": 0,
+}
 
 # ---------------------------------------------------------------------------
 # Tier boundaries — do not modify without updating models.py and schema JSON.
@@ -145,6 +158,7 @@ class ScoredAccount:
     tier: AccountTier
     source: DataSource
     enriched_at: datetime
+    enrichment_completeness: float = 0.0  # 0.0–1.0: fraction of key fields filled
 
     def to_icp_account(self) -> ICPAccount:
         """Convert to the canonical ICPAccount Pydantic model for API serialisation."""
@@ -278,13 +292,13 @@ def score_account(
     icp = master_context.icp
 
     # --- Compute fractional score per dimension ---
-    industry_frac      = rules.score_industry(account.industry, icp.industries)
+    industry_frac      = rules.score_industry(account.industry, list(icp.industries))
     company_size_frac  = rules.score_company_size(account.headcount, icp.company_size_employees)
-    geography_frac     = rules.score_geography(account.hq_location, icp.geographies)
-    tech_stack_frac    = rules.score_tech_stack(account.technologies_used, icp.tech_stack_signals)
+    geography_frac     = rules.score_geography(account.hq_location, list(icp.geographies))
+    tech_stack_frac    = rules.score_tech_stack(account.technologies_used, list(icp.tech_stack_signals))
     funding_frac       = rules.score_funding_stage(account.funding_stage, list(icp.funding_stage))
     triggers_frac      = rules.score_buying_triggers(
-                             account.recent_signals, icp.buying_triggers, reference_date
+                             account.recent_signals, list(icp.buying_triggers), reference_date
                          )
 
     # --- Apply weights (floor to int; scores are whole points) ---
@@ -295,13 +309,6 @@ def score_account(
     funding_pts       = int(funding_frac       * WEIGHTS["funding_stage"])
     triggers_pts      = int(triggers_frac      * WEIGHTS["buying_triggers"])
 
-    total = (
-        industry_pts + company_size_pts + geography_pts
-        + tech_stack_pts + funding_pts + triggers_pts
-    )
-    # Clamp to [0, 100] as a safety rail (shouldn't be needed given weights sum to 100)
-    score = max(0, min(100, total))
-
     breakdown = {
         "industry":         industry_pts,
         "company_size":     company_size_pts,
@@ -310,6 +317,32 @@ def score_account(
         "funding_stage":    funding_pts,
         "buying_triggers":  triggers_pts,
     }
+
+    total = sum(breakdown.values())
+    score = max(0, min(100, total))
+
+    # --- Enforce per-dimension minimums: if any configured minimum is not met,
+    #     cap the tier at TIER_2 (score capped at 79) so a lopsided account
+    #     cannot reach TIER_1 on one dimension alone. ---
+    dim_minimum_violated = any(
+        breakdown[dim] < minimum
+        for dim, minimum in _DIM_MINIMUMS.items()
+        if minimum > 0
+    )
+    if dim_minimum_violated and score >= 80:
+        score = 79
+
+    # --- Enrichment completeness: fraction of key fields that are not "not_found" ---
+    _NF = "not_found"
+    filled = sum([
+        account.industry != _NF,
+        account.headcount != _NF,
+        account.hq_location != _NF,
+        account.funding_stage != _NF,
+        bool(account.technologies_used),
+        bool(account.recent_signals),
+    ])
+    enrichment_completeness = round(filled / 6, 2)
 
     tier = _assign_tier(score)
 
@@ -339,4 +372,5 @@ def score_account(
         tier=tier,
         source=account.source,
         enriched_at=account.enriched_at,
+        enrichment_completeness=enrichment_completeness,
     )

@@ -8,6 +8,7 @@ from typing import Any
 
 from backend.schemas.models import MessageEngine, PromptTemplate
 
+from .engines.anthropic_client import AnthropicClient
 from .engines.mock import MockAnthropicClient, MockOpenAIClient
 from .engines.openai_client import OpenAIClient
 
@@ -36,8 +37,15 @@ class EngineRouter:
     def __init__(self, *, anthropic_client: Any = None, openai_client: Any = None, use_mock: bool | None = None):
         mock = use_mock if use_mock is not None else os.environ.get("ENV") == "test"
         has_openai_key = bool(os.environ.get("OPENAI_API_KEY"))
+        has_anthropic_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
-        self.anthropic_client = anthropic_client or (MockAnthropicClient() if mock else None)
+        if anthropic_client:
+            self.anthropic_client = anthropic_client
+        elif mock or not has_anthropic_key:
+            self.anthropic_client = MockAnthropicClient()
+        else:
+            self.anthropic_client = AnthropicClient()
+
         if openai_client:
             self.openai_client = openai_client
         elif mock or not has_openai_key:
@@ -58,6 +66,7 @@ class EngineRouter:
             raise EngineGenerationError(f"No configured client for {engine.value}")
 
         last_error: Exception | None = None
+        max_tokens = template.max_tokens
         for retry in range(3):
             try:
                 raw = client.generate(
@@ -65,7 +74,7 @@ class EngineRouter:
                     user_prompt=prompt,
                     template_id=template.template_id,
                     context=context,
-                    max_tokens=template.max_tokens,
+                    max_tokens=max_tokens,
                     temperature=template.temperature,
                     attempt=attempt,
                 )
@@ -81,8 +90,15 @@ class EngineRouter:
                     attempt=attempt,
                     model_version=raw.get("model_version", "mock"),
                 )
-            except (json.JSONDecodeError, RuntimeError) as exc:
+            except json.JSONDecodeError as exc:
                 last_error = exc
+                # Truncated JSON — double the budget and retry immediately
+                max_tokens = min(max_tokens * 2, 4096)
+                time.sleep(0.05 * (retry + 1))
+            except RuntimeError as exc:
+                last_error = exc
+                if "finish_reason=length" in str(exc):
+                    max_tokens = min(max_tokens * 2, 4096)
                 time.sleep(0.05 * (retry + 1))
         raise EngineGenerationError(f"Generation failed after retries: {last_error}")
 

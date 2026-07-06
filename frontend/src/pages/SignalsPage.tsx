@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { getActiveClientId } from "@/lib/session";
-import { useDiscoverSignals, useSignalsByClient } from "./Accounts/signals/hooks";
+import { useDiscoverSignals, useCancelSignals, useSignalRunStatus, useSignalsByClient } from "./Accounts/signals/hooks";
 import { useAccounts } from "./Accounts/hooks";
 import type { SignalReport, BuyingStage } from "./Accounts/signals/types";
 import SignalTimeline from "./Accounts/signals/SignalTimeline";
@@ -25,7 +25,7 @@ const STAGE_ICON: Record<string, string> = {
 };
 
 function logoColor(name: string): string {
-  const colors = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#3b82f6"];
+  const colors = ["#8b5cf6","#00d4ff","#00ff96","#ffd700","#ff4646","#a78bfa","#f472b6","#2dd4bf","#fb923c","#60a5fa"];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
   return colors[h % colors.length];
@@ -52,9 +52,11 @@ const STAGE_LABELS: Record<BuyingStage, string> = {
   EVALUATING: "Evaluating", READY_TO_BUY: "Ready to Buy",
 };
 const STAGE_COLORS: Record<BuyingStage, { active: string }> = {
-  UNAWARE: { active: "#6b7280" }, PROBLEM_AWARE: { active: "#b45309" },
-  SOLUTION_AWARE: { active: "#0369a1" }, EVALUATING: { active: "#7c3aed" },
-  READY_TO_BUY: { active: "#15803d" },
+  UNAWARE:        { active: "var(--text-3)"   },
+  PROBLEM_AWARE:  { active: "var(--warn-500)" },
+  SOLUTION_AWARE: { active: "var(--acc-300)"  },
+  EVALUATING:     { active: "var(--vio-500)"  },
+  READY_TO_BUY:   { active: "var(--good-500)" },
 };
 
 // ── Signal detail drawer ──────────────────────────────────────────────────────
@@ -221,7 +223,10 @@ export function SignalsPage() {
   const accounts = accountsQuery.data?.accounts ?? [];
 
   const query    = useSignalsByClient(clientId);
-  const discover = useDiscoverSignals();
+  const discover   = useDiscoverSignals();
+  const cancel     = useCancelSignals();
+  const runStatus  = useSignalRunStatus(clientId ?? undefined);
+  const isRunning  = runStatus.data?.is_running || discover.isPending;
   const allReports = (Object.values(query.data ?? {}) as SignalReport[]).sort(
     (a, b) => b.signal_score.total_score - a.signal_score.total_score,
   );
@@ -284,13 +289,23 @@ export function SignalsPage() {
           <button className="btn btn-sm" onClick={() => setSelectedDomain("")}>✕ Clear filter</button>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {isRunning && (
+            <button
+              className="btn btn-sm"
+              data-variant="danger"
+              onClick={() => cancel.mutate(clientId!)}
+              disabled={cancel.isPending}
+            >
+              {cancel.isPending ? "Cancelling…" : "✕ Cancel run"}
+            </button>
+          )}
           <button
             className="btn btn-sm"
             data-variant="accent"
-            onClick={() => discover.mutate(clientId)}
-            disabled={discover.isPending}
+            onClick={() => discover.mutate(clientId!)}
+            disabled={isRunning}
           >
-            {discover.isPending ? "Discovering…" : "⟳ Refresh signals"}
+            {isRunning ? "Discovering…" : "⟳ Refresh signals"}
           </button>
         </div>
       </div>

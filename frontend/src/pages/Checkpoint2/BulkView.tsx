@@ -36,16 +36,16 @@ function summarise(state: CP2ReviewState): AccountSummary[] {
 
 const DECISION_STYLE: Record<string, { bg: string; fg: string; border: string }> = {
   PENDING:               { bg: "var(--surface-3)",  fg: "var(--text-3)",     border: "var(--border)" },
-  APPROVED:              { bg: "var(--good-50)",    fg: "var(--good-700)",   border: "var(--good-100)" },
-  NEEDS_REVISION:        { bg: "#fef3c7",           fg: "#92400e",           border: "#fde68a" },
-  REMOVED_FROM_PIPELINE: { bg: "var(--bad-50)",     fg: "var(--bad-700)",    border: "var(--bad-100)" },
+  APPROVED:              { bg: "rgba(0,255,150,0.08)",  fg: "var(--good-500)", border: "rgba(0,255,150,0.25)" },
+  NEEDS_REVISION:        { bg: "rgba(255,215,0,0.08)", fg: "var(--warn-500)", border: "rgba(255,215,0,0.25)" },
+  REMOVED_FROM_PIPELINE: { bg: "rgba(255,70,70,0.08)", fg: "var(--bad-500)",  border: "rgba(255,70,70,0.25)" },
 };
 
 function logoLetter(domain: string) {
   return domain.charAt(0).toUpperCase();
 }
 function logoColor(domain: string): string {
-  const colors = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#3b82f6"];
+  const colors = ["#8b5cf6","#00d4ff","#00ff96","#ffd700","#ff4646","#a78bfa","#f472b6","#2dd4bf","#fb923c","#60a5fa"];
   let h = 0;
   for (let i = 0; i < domain.length; i++) h = (h * 31 + domain.charCodeAt(i)) & 0xffff;
   return colors[h % colors.length];
@@ -147,7 +147,7 @@ function AccountRow({ clientId, summary }: { clientId: string; summary: AccountS
         {blockedReason && (
           <span
             data-testid={`account-block-${account.account_domain}`}
-            style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 999, padding: "3px 10px", fontWeight: 600 }}
+            style={{ fontSize: 11, color: "var(--warn-500)", background: "rgba(255,215,0,0.10)", border: "1px solid rgba(255,215,0,0.25)", borderRadius: 999, padding: "3px 10px", fontWeight: 600 }}
           >
             ⚠ {blockedReason}
           </span>
@@ -249,7 +249,7 @@ export default function BulkView({ clientId, state }: Props) {
               ? "var(--surface-3)"
               : "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
             color: approvableCount === 0 || approvingAll ? "var(--text-mute)" : "#fff",
-            boxShadow: approvableCount === 0 || approvingAll ? "none" : "0 2px 10px rgba(91,80,245,0.3)",
+            boxShadow: approvableCount === 0 || approvingAll ? "none" : "0 0 18px rgba(0,212,255,0.30), 0 2px 10px rgba(0,0,0,0.4)",
             opacity: approvingAll ? 0.7 : 1,
             transition: "all 0.15s",
           }}

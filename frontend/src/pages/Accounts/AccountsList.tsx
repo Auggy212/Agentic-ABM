@@ -17,7 +17,7 @@ const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
 ];
 
 function logoColor(name: string): string {
-  const colors = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#3b82f6"];
+  const colors = ["#8b5cf6","#00d4ff","#00ff96","#ffd700","#ff4646","#a78bfa","#f472b6","#2dd4bf","#fb923c","#60a5fa"];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
   return colors[h % colors.length];

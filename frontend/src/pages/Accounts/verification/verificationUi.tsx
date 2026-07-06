@@ -27,23 +27,23 @@ export function sourceLabel(source: string) {
 }
 
 export function qualityColors(score: number) {
-  if (score >= 80) return { fg: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" };
-  if (score >= 60) return { fg: "#b45309", bg: "#fffbeb", border: "#fde68a" };
-  return { fg: "#b91c1c", bg: "#fef2f2", border: "#fecaca" };
+  if (score >= 80) return { fg: "var(--good-500)", bg: "rgba(0,255,150,0.08)", border: "rgba(0,255,150,0.25)" };
+  if (score >= 60) return { fg: "var(--warn-500)", bg: "rgba(255,215,0,0.08)", border: "rgba(255,215,0,0.25)" };
+  return { fg: "var(--bad-500)", bg: "rgba(255,70,70,0.08)", border: "rgba(255,70,70,0.25)" };
 }
 
 export const statusColors: Record<EmailFinalStatus, { fg: string; bg: string; border: string }> = {
-  VALID: { fg: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" },
-  INVALID: { fg: "#b91c1c", bg: "#fef2f2", border: "#fecaca" },
-  CATCH_ALL: { fg: "#b45309", bg: "#fffbeb", border: "#fde68a" },
-  RISKY: { fg: "#c2410c", bg: "#fff7ed", border: "#fed7aa" },
-  NOT_FOUND: { fg: "#475569", bg: "#f8fafc", border: "#e2e8f0" },
+  VALID:     { fg: "var(--good-500)", bg: "rgba(0,255,150,0.08)",  border: "rgba(0,255,150,0.25)"  },
+  INVALID:   { fg: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  border: "rgba(255,70,70,0.25)"  },
+  CATCH_ALL: { fg: "var(--warn-500)", bg: "rgba(255,215,0,0.08)",  border: "rgba(255,215,0,0.25)"  },
+  RISKY:     { fg: "var(--warn-500)", bg: "rgba(255,140,0,0.08)",  border: "rgba(255,140,0,0.25)"  },
+  NOT_FOUND: { fg: "var(--text-3)",   bg: "rgba(255,255,255,0.04)", border: "var(--border)"         },
 };
 
 export const methodColors: Record<ResolutionMethod, { fg: string; bg: string; border: string }> = {
-  LINKEDIN_PRIMARY: { fg: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" },
-  APOLLO_FALLBACK: { fg: "#475569", bg: "#f8fafc", border: "#e2e8f0" },
-  NO_RECONCILIATION_POSSIBLE: { fg: "#b45309", bg: "#fffbeb", border: "#fde68a" },
+  LINKEDIN_PRIMARY:          { fg: "var(--good-500)", bg: "rgba(0,255,150,0.08)", border: "rgba(0,255,150,0.25)" },
+  APOLLO_FALLBACK:           { fg: "var(--text-3)",   bg: "rgba(255,255,255,0.04)", border: "var(--border)" },
+  NO_RECONCILIATION_POSSIBLE:{ fg: "var(--warn-500)", bg: "rgba(255,215,0,0.08)", border: "rgba(255,215,0,0.25)" },
 };
 
 export function Pill({
@@ -78,9 +78,9 @@ export function Pill({
 }
 
 export function issueColor(issue: VerificationIssue) {
-  if (issue.severity === "ERROR") return "#b91c1c";
-  if (issue.severity === "WARNING") return "#b45309";
-  return "#0369a1";
+  if (issue.severity === "ERROR") return "var(--bad-500)";
+  if (issue.severity === "WARNING") return "var(--warn-500)";
+  return "var(--acc-300)";
 }
 
 export const sectionCard: CSSProperties = {

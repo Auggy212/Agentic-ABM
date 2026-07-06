@@ -11,10 +11,10 @@ import type { Sequence, SequenceStep } from "@/types/sequences";
 const CHANNEL_GLYPH: Record<string, string> = { email: "@", linkedin: "in", call: "☎" };
 const CHANNEL_LABEL: Record<string, string> = { email: "Email", linkedin: "LinkedIn DM", call: "Call / SMS" };
 const REVIEW_BADGE: Record<string, { bg: string; fg: string; label: string }> = {
-  APPROVED:     { bg: "var(--good-50)",  fg: "var(--good-700)",  label: "Approved" },
-  EDITED:       { bg: "#fef3c7",         fg: "#92400e",          label: "Edited" },
-  REGENERATED:  { bg: "#eff6ff",         fg: "#1d4ed8",          label: "Regenerated" },
-  REJECTED:     { bg: "var(--bad-50)",   fg: "var(--bad-700)",   label: "Rejected" },
+  APPROVED:    { bg: "rgba(0,255,150,0.08)",  fg: "var(--good-500)", label: "Approved"    },
+  EDITED:      { bg: "rgba(255,215,0,0.08)", fg: "var(--warn-500)", label: "Edited"      },
+  REGENERATED: { bg: "rgba(0,212,255,0.08)", fg: "var(--acc-300)",  label: "Regenerated" },
+  REJECTED:    { bg: "rgba(255,70,70,0.08)", fg: "var(--bad-500)",  label: "Rejected"    },
   PAUSED:       { bg: "var(--surface-3)", fg: "var(--text-3)",   label: "Paused" },
   PENDING:      { bg: "var(--surface-2)", fg: "var(--text-3)",   label: "Pending" },
 };

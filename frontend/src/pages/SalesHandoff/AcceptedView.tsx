@@ -18,7 +18,7 @@ export default function AcceptedView({ handoff }: Props) {
       <div
         style={{
           maxWidth: 460,
-          background: "white",
+          background: "var(--surface)",
           borderRadius: 12,
           padding: "28px 24px",
           boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)",
@@ -30,8 +30,8 @@ export default function AcceptedView({ handoff }: Props) {
             width: 44,
             height: 44,
             borderRadius: 999,
-            background: "#dcfce7",
-            color: "#166534",
+            background: "rgba(0,255,150,0.15)",
+            color: "var(--good-500)",
             display: "grid",
             placeItems: "center",
             fontSize: 22,

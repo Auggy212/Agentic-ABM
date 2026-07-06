@@ -3,8 +3,14 @@ FastAPI application entry point for the ABM Engine backend.
 """
 
 from contextlib import asynccontextmanager
+import asyncio
 import os
+import sys
 from pathlib import Path
+
+# Windows: switch to ProactorEventLoop to avoid the 64-fd select() limit
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,12 +58,14 @@ from backend.api.routes.templates import router as templates_router
 from backend.api.routes.verify import router as verify_router
 from backend.api.routes.visual import router as visual_router
 from backend.api.routes.pipeline import router as pipeline_router
+from backend.config_validator import validate_config
 from backend.db.session import create_tables
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     create_tables()   # creates SQLite file + schema on first run; no-op if tables exist
+    validate_config(raise_on_missing_required=False)  # log warnings; don't crash on optional keys
     yield
 
 

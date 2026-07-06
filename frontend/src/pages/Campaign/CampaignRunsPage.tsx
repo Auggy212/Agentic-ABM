@@ -26,10 +26,10 @@ function relTime(iso: string) {
 }
 
 const STATUS_STYLE: Record<CampaignRun["status"], { color: string; bg: string; border: string }> = {
-  RUNNING:   { color: "#1d4ed8", bg: "#eff6ff",  border: "#bfdbfe" },
-  COMPLETED: { color: "#15803d", bg: "#f0fdf4",  border: "#bbf7d0" },
-  HALTED:    { color: "#b91c1c", bg: "#fef2f2",  border: "#fecaca" },
-  FAILED:    { color: "#7f1d1d", bg: "#fff1f2",  border: "#fca5a5" },
+  RUNNING:   { color: "var(--acc-300)",  bg: "rgba(0,212,255,0.08)",  border: "rgba(0,212,255,0.25)"  },
+  COMPLETED: { color: "var(--good-500)", bg: "rgba(0,255,150,0.08)",  border: "rgba(0,255,150,0.25)"  },
+  HALTED:    { color: "var(--warn-500)", bg: "rgba(255,215,0,0.08)",  border: "rgba(255,215,0,0.25)"  },
+  FAILED:    { color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  border: "rgba(255,70,70,0.25)"  },
 };
 
 const CHANNEL_ICON: Record<string, string> = {
@@ -38,9 +38,9 @@ const CHANNEL_ICON: Record<string, string> = {
 };
 
 const SEND_COLOR: Record<string, string> = {
-  SENT: "#15803d", FAILED: "#b91c1c", PENDING_QUOTA_RESET: "#b45309",
-  HALTED: "#b91c1c", QUEUED: "#6b7280", PENDING_COOKIE_REFRESH: "#b45309",
-  PENDING_BUDGET: "#b45309",
+  SENT: "var(--good-500)", FAILED: "var(--bad-500)", PENDING_QUOTA_RESET: "var(--warn-500)",
+  HALTED: "var(--bad-500)", QUEUED: "var(--text-3)", PENDING_COOKIE_REFRESH: "var(--warn-500)",
+  PENDING_BUDGET: "var(--warn-500)",
 };
 
 // ── Trigger panel ─────────────────────────────────────────────────────────────
@@ -110,10 +110,10 @@ function TriggerPanel({ clientId, latestRun, activeHalt }: {
           )}
 
           {triggerRun.isSuccess && (
-            <span style={{ fontSize: 11, color: "#15803d", fontWeight: 600 }}>✓ Run queued successfully</span>
+            <span style={{ fontSize: 11, color: "var(--good-500)", fontWeight: 600 }}>✓ Run queued successfully</span>
           )}
           {triggerRun.isError && (
-            <span style={{ fontSize: 11, color: "#b91c1c" }}>Failed — check CP3 is approved</span>
+            <span style={{ fontSize: 11, color: "var(--bad-500)" }}>Failed — check CP3 is approved</span>
           )}
         </div>
       </div>
@@ -121,15 +121,15 @@ function TriggerPanel({ clientId, latestRun, activeHalt }: {
       {/* Active halt warning */}
       {activeHalt && (
         <div style={{
-          background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10,
+          background: "rgba(255,70,70,0.08)", border: "1px solid rgba(255,70,70,0.25)", borderRadius: 10,
           padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
         }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#b91c1c", marginBottom: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--bad-500)", marginBottom: 2 }}>
               ⚠ Campaign halted — {activeHalt.scope === "GLOBAL" ? "Global" : "Client"} halt active
             </div>
-            <div style={{ fontSize: 12, color: "#7f1d1d" }}>{activeHalt.detail}</div>
-            <div style={{ fontSize: 10, color: "#b91c1c", marginTop: 4, fontFamily: "var(--font-mono)" }}>
+            <div style={{ fontSize: 12, color: "var(--bad-500)", opacity: 0.8 }}>{activeHalt.detail}</div>
+            <div style={{ fontSize: 10, color: "var(--bad-500)", marginTop: 4, fontFamily: "var(--font-mono)", opacity: 0.7 }}>
               reason={activeHalt.reason} · by={activeHalt.triggered_by} · {fmtTime(activeHalt.triggered_at)}
             </div>
           </div>
@@ -138,7 +138,7 @@ function TriggerPanel({ clientId, latestRun, activeHalt }: {
             disabled={resume.isPending}
             style={{
               padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
-              background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", flexShrink: 0,
+              background: "rgba(255,70,70,0.12)", color: "var(--bad-500)", border: "1px solid rgba(255,70,70,0.30)", flexShrink: 0,
             }}
           >
             {resume.isPending ? "Resuming…" : "Resume"}
@@ -152,15 +152,15 @@ function TriggerPanel({ clientId, latestRun, activeHalt }: {
           background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "14px 16px",
           display: "flex", flexDirection: "column", gap: 10,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e" }}>Manual halt — stops all new sends until resumed</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--warn-500)" }}>Manual halt — stops all new sends until resumed</div>
           <textarea
             value={haltDetail}
             onChange={(e) => setHaltDetail(e.target.value)}
             placeholder="Reason for halting (e.g. client asked to pause while legal reviews sequence)"
             rows={2}
             style={{
-              fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid #fde68a",
-              background: "#fff", resize: "vertical", fontFamily: "inherit", color: "var(--text)",
+              fontSize: 12, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,215,0,0.25)",
+              background: "var(--surface-2)", resize: "vertical", fontFamily: "inherit", color: "var(--text)",
             }}
           />
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -172,8 +172,8 @@ function TriggerPanel({ clientId, latestRun, activeHalt }: {
               onClick={() => operatorHalt.mutate({ detail: haltDetail, triggered_by: "operator" }, { onSuccess: () => { setShowHaltForm(false); setHaltDetail(""); } })}
               style={{
                 fontSize: 12, padding: "6px 14px", borderRadius: 7, fontWeight: 700, cursor: "pointer",
-                background: haltDetail.trim() ? "#b91c1c" : "var(--surface-3)",
-                color: haltDetail.trim() ? "#fff" : "var(--text-3)", border: "none",
+                background: haltDetail.trim() ? "rgba(255,70,70,0.15)" : "var(--surface-3)",
+                color: haltDetail.trim() ? "var(--bad-500)" : "var(--text-3)", border: haltDetail.trim() ? "1px solid rgba(255,70,70,0.30)" : "none",
               }}
             >
               {operatorHalt.isPending ? "Halting…" : "Confirm Halt"}
@@ -226,15 +226,15 @@ function RunCard({ run, sends }: { run: CampaignRun; sends: OutboundSend[] }) {
 
           {/* Counts */}
           <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--text-2)" }}>
-            <span style={{ color: "#15803d", fontWeight: 700 }}>{run.total_sent} sent</span>
-            {run.total_failed > 0 && <span style={{ color: "#b91c1c", fontWeight: 700 }}>{run.total_failed} failed</span>}
+            <span style={{ color: "var(--good-500)", fontWeight: 700 }}>{run.total_sent} sent</span>
+            {run.total_failed > 0 && <span style={{ color: "var(--bad-500)", fontWeight: 700 }}>{run.total_failed} failed</span>}
             {run.total_pending > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}>{run.total_pending} pending</span>}
             <span style={{ color: "var(--text-3)" }}>{run.total_messages} total</span>
           </div>
 
           {/* Halt reason */}
           {run.halt_reason && (
-            <span style={{ fontSize: 11, color: "#b91c1c", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>
+            <span style={{ fontSize: 11, color: "var(--bad-500)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>
               {run.halt_reason}
             </span>
           )}
@@ -324,8 +324,8 @@ function DomainSendRow({ domain, sends }: { domain: string; sends: OutboundSend[
 
       {/* Summary counts */}
       <div style={{ display: "flex", gap: 10, fontSize: 12, flexShrink: 0 }}>
-        {sent > 0    && <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {sent}</span>}
-        {failed > 0  && <span style={{ color: "#b91c1c", fontWeight: 700 }}>✗ {failed}</span>}
+        {sent > 0    && <span style={{ color: "var(--good-500)", fontWeight: 700 }}>✓ {sent}</span>}
+        {failed > 0  && <span style={{ color: "var(--bad-500)", fontWeight: 700 }}>✗ {failed}</span>}
         {pending > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}>⏳ {pending}</span>}
       </div>
     </div>

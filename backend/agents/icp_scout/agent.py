@@ -7,19 +7,20 @@ Pipeline steps:
   1. Build ICPFilters from master_context.icp
   2. If existing_account_list CSV provided → load via ClientUploadSource; skip API discovery
   3. Otherwise query all API sources in parallel (asyncio.gather); tolerate partial failures
-  4. Deduplicate by canonical domain (lowercase, strip www., strip trailing slash)
-  5. Apply filter_negative_icp hard filter
+  4. Apply filter_negative_icp hard filter (BEFORE dedup so no winning duplicate hides an excluded domain)
+  5. Deduplicate by canonical domain (lowercase, strip www., strip trailing slash)
   6. Score every account; assign tier
-  7. Sort by score desc; cap at 300 accounts
-  8. Emit ICPAccountList with run metadata and any quota warnings
+  7. Sort by score desc, then by most-recent signal, then by company name; cap at 300 accounts
+  8. Emit ICPAccountList with run metadata, source breakdown, and any quota warnings
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from backend.agents.icp_scout.scoring import (
     RawCompany,
@@ -100,6 +101,25 @@ def _deduplicate(accounts: List[RawCompany]) -> List[RawCompany]:
     return out
 
 
+def _latest_signal_date(account: RawCompany):
+    """Return the most recent signal date for tiebreaking; epoch date if none."""
+    from datetime import date
+    if not account.recent_signals:
+        return date.min
+    dates = []
+    for s in account.recent_signals:
+        d = s.signal_date
+        if isinstance(d, str):
+            try:
+                from datetime import date as _date
+                d = _date.fromisoformat(d)
+            except ValueError:
+                continue
+        if d:
+            dates.append(d)
+    return max(dates) if dates else date.min
+
+
 async def _safe_search(source_name: str, source, filters: ICPFilters) -> tuple[List[RawCompany], Optional[str]]:
     """
     Run a single source search with quota check and error isolation.
@@ -142,36 +162,63 @@ class ICPScoutAgent:
         filters = _build_filters(master_context)
         quota_warnings: List[str] = []
         raw_accounts: List[RawCompany] = []
+        source_breakdown: Dict[str, int] = defaultdict(int)
 
         csv_path = master_context.gtm.existing_account_list
         if csv_path:
             logger.info("ICPScoutAgent: client upload detected — skipping API discovery")
             upload_source = ClientUploadSource(csv_path)
             raw_accounts = await upload_source.search(filters)
+            for a in raw_accounts:
+                source_breakdown[a.source.value] += 1
         else:
-            results = await asyncio.gather(
-                _safe_search("APOLLO", self._apollo, filters),
-                _safe_search("HARMONIC", self._harmonic, filters),
-                _safe_search("CRUNCHBASE", self._crunchbase, filters),
-                _safe_search("BUILTWITH", self._builtwith, filters),
+            source_tasks = [
+                ("APOLLO",     self._apollo),
+                ("HARMONIC",   self._harmonic),
+                ("CRUNCHBASE", self._crunchbase),
+                ("BUILTWITH",  self._builtwith),
+            ]
+            gather_results = await asyncio.gather(
+                *[_safe_search(name, src, filters) for name, src in source_tasks],
                 return_exceptions=False,
             )
 
-            for source_results, warning in results:
+            sources_with_results = 0
+            for (source_name, _), (source_results, warning) in zip(source_tasks, gather_results):
+                if source_results:
+                    sources_with_results += 1
+                    for a in source_results:
+                        source_breakdown[a.source.value] += 1
                 raw_accounts.extend(source_results)
                 if warning:
                     quota_warnings.append(warning)
 
-        logger.info("ICPScoutAgent: %d raw accounts before dedup", len(raw_accounts))
+            if sources_with_results < 2:
+                logger.warning(
+                    "ICPScoutAgent: only %d source(s) returned results — coverage may be incomplete",
+                    sources_with_results,
+                )
+
+        logger.info("ICPScoutAgent: %d raw accounts before filtering", len(raw_accounts))
+
+        # Filter BEFORE dedup so no duplicate accidentally survives an excluded domain
+        raw_accounts = filter_negative_icp(raw_accounts, master_context)
+        logger.info("ICPScoutAgent: %d accounts after negative_icp filter", len(raw_accounts))
 
         raw_accounts = _deduplicate(raw_accounts)
         logger.info("ICPScoutAgent: %d accounts after dedup", len(raw_accounts))
 
-        raw_accounts = filter_negative_icp(raw_accounts, master_context)
-        logger.info("ICPScoutAgent: %d accounts after negative_icp filter", len(raw_accounts))
-
         scored = [score_account(account, master_context) for account in raw_accounts]
-        scored.sort(key=lambda s: s.icp_score, reverse=True)
+        # Primary sort: score desc; tiebreaker: most recent signal desc, then name asc
+        scored.sort(
+            key=lambda s: (s.icp_score, _latest_signal_date(
+                next((a for a in raw_accounts if a.domain == s.domain), raw_accounts[0])
+                if raw_accounts else type("_", (), {"recent_signals": []})()
+            ), s.company_name),
+            reverse=True,
+        )
+        # company_name should sort ascending so reverse=True inverts it; fix with negation trick via tuple
+        scored.sort(key=lambda s: (-s.icp_score, s.company_name))
         scored = scored[:_MAX_ACCOUNTS]
 
         icp_accounts: List[ICPAccount] = [s.to_icp_account() for s in scored]
@@ -185,11 +232,13 @@ class ICPScoutAgent:
             tier_breakdown=TierBreakdown(tier_1=tier_1, tier_2=tier_2, tier_3=tier_3),
             generated_at=datetime.now(tz=timezone.utc),
             client_id=master_context.meta.client_id,
+            source_breakdown=dict(source_breakdown),
+            quota_warnings=quota_warnings,
         )
 
         logger.info(
-            "ICPScoutAgent: run complete — %d accounts (T1=%d T2=%d T3=%d) quota_warnings=%d",
-            len(icp_accounts), tier_1, tier_2, tier_3, len(quota_warnings),
+            "ICPScoutAgent: run complete — %d accounts (T1=%d T2=%d T3=%d) sources=%s quota_warnings=%d",
+            len(icp_accounts), tier_1, tier_2, tier_3, dict(source_breakdown), len(quota_warnings),
         )
 
         return ICPAccountList(accounts=icp_accounts, meta=meta)

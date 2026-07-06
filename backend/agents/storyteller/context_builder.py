@@ -74,7 +74,7 @@ def build_context(
         "master_context_win_themes": master_context.gtm.win_themes if master_context else [],
         "account_company_name": account.get("company_name") or account.get("domain") or account_domain,
         "account_domain": account_domain,
-        "account_intel_top_priority": intel_priorities[0]["text"] if intel_priorities else "",
+        "account_intel_top_priority": intel_priorities[0]["text"] if intel_priorities else (high_signals[0] if high_signals else ""),
         "account_intel_top_priority_claim_id": intel_priorities[0]["claim_id"] if intel_priorities else None,
         "account_intel_competitive_angle": competitor_angles[0]["text"] if competitor_angles else "",
         "account_intel_competitive_angle_claim_id": competitor_angles[0]["claim_id"] if competitor_angles else None,

@@ -64,6 +64,10 @@ def _engine_target(engine: MessageEngine | MessageEngineTarget | str) -> Message
 class TemplateRegistry:
     def __init__(self, db: Session):
         self.db = db
+        self._cache: dict[tuple, PromptTemplate] = {}
+
+    def _cache_key(self, channel_value: str, tier_value: str, sequence_position: int, engine_value: str) -> tuple:
+        return (channel_value, tier_value, sequence_position, engine_value)
 
     def get_active(
         self,
@@ -75,6 +79,10 @@ class TemplateRegistry:
         channel_value = channel.value if hasattr(channel, "value") else str(channel)
         tier_value = _target_from_tier(tier).value
         engine_value = _engine_target(engine).value
+
+        cache_key = self._cache_key(channel_value, tier_value, sequence_position, engine_value)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
         candidates = [
             (tier_value, engine_value),
@@ -95,7 +103,9 @@ class TemplateRegistry:
                 .first()
             )
             if record is not None:
-                return _to_model(record)
+                result = _to_model(record)
+                self._cache[cache_key] = result
+                return result
         raise TemplateNotFoundError(
             f"No active template for channel={channel_value}, tier={tier_value}, "
             f"position={sequence_position}, engine={engine_value}"

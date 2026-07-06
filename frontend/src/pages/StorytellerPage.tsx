@@ -15,11 +15,11 @@ interface StorytellerResponse {
 // ── Channel config ────────────────────────────────────────────────────────────
 
 const CHANNEL_META: Record<MessageChannel, { icon: string; color: string; bg: string; border: string; maxChars: number; hint: string }> = {
-  LINKEDIN_CONNECTION: { icon: "in",  color: "#0a66c2", bg: "#eff6ff",    border: "#bfdbfe", maxChars: 300,  hint: "Keep it concise — connection notes are limited to 300 chars." },
-  LINKEDIN_DM:         { icon: "in",  color: "#0a66c2", bg: "#eff6ff",    border: "#bfdbfe", maxChars: 1900, hint: "Conversational tone. Reference the connection request context." },
-  EMAIL:               { icon: "✉",  color: "#7c3aed", bg: "#faf5ff",    border: "#ddd6fe", maxChars: 2000, hint: "Subject line is critical. Open with the account hook." },
-  WHATSAPP:            { icon: "wa", color: "#16a34a", bg: "#f0fdf4",    border: "#bbf7d0", maxChars: 1000, hint: "Short, human. Avoid markdown — it won't render in WhatsApp." },
-  REDDIT_STRATEGY_NOTE:{ icon: "r",  color: "#ea580c", bg: "#fff7ed",    border: "#fed7aa", maxChars: 5000, hint: "Strategy note for how to engage authentically on relevant subreddits." },
+  LINKEDIN_CONNECTION: { icon: "in",  color: "var(--acc-300)",  bg: "rgba(0,212,255,0.07)",  border: "rgba(0,212,255,0.20)", maxChars: 300,  hint: "Keep it concise — connection notes are limited to 300 chars." },
+  LINKEDIN_DM:         { icon: "in",  color: "var(--acc-300)",  bg: "rgba(0,212,255,0.07)",  border: "rgba(0,212,255,0.20)", maxChars: 1900, hint: "Conversational tone. Reference the connection request context." },
+  EMAIL:               { icon: "✉",  color: "var(--vio-500)",  bg: "rgba(139,92,246,0.07)", border: "rgba(139,92,246,0.20)", maxChars: 2000, hint: "Subject line is critical. Open with the account hook." },
+  WHATSAPP:            { icon: "wa", color: "var(--good-500)", bg: "rgba(0,255,150,0.07)",  border: "rgba(0,255,150,0.20)", maxChars: 1000, hint: "Short, human. Avoid markdown — it won't render in WhatsApp." },
+  REDDIT_STRATEGY_NOTE:{ icon: "r",  color: "var(--warn-500)", bg: "rgba(255,215,0,0.07)",  border: "rgba(255,215,0,0.20)", maxChars: 5000, hint: "Strategy note for how to engage authentically on relevant subreddits." },
 };
 
 const CHANNEL_KEYS = Object.keys(CHANNEL_LABEL) as MessageChannel[];
@@ -27,14 +27,14 @@ const CHANNEL_KEYS = Object.keys(CHANNEL_LABEL) as MessageChannel[];
 // ── Role / Tier helpers ───────────────────────────────────────────────────────
 
 const ROLE_STYLE: Record<string, { bg: string; fg: string; border: string }> = {
-  DECISION_MAKER: { bg: "var(--acc-50,#eff6ff)",  fg: "var(--acc-700,#1d4ed8)",  border: "var(--acc-200,#bfdbfe)" },
-  CHAMPION:       { bg: "var(--good-50)",          fg: "var(--good-700)",          border: "var(--good-100)" },
-  BLOCKER:        { bg: "var(--bad-50)",            fg: "var(--bad-700)",           border: "var(--bad-100)" },
-  INFLUENCER:     { bg: "#fffbeb",                  fg: "#92400e",                  border: "#fde68a" },
+  DECISION_MAKER: { bg: "rgba(0,212,255,0.08)",  fg: "var(--acc-300)",  border: "rgba(0,212,255,0.25)" },
+  CHAMPION:       { bg: "rgba(0,255,150,0.08)",  fg: "var(--good-500)", border: "rgba(0,255,150,0.25)" },
+  BLOCKER:        { bg: "rgba(255,70,70,0.08)",  fg: "var(--bad-500)",  border: "rgba(255,70,70,0.25)" },
+  INFLUENCER:     { bg: "rgba(255,215,0,0.08)",  fg: "var(--warn-500)", border: "rgba(255,215,0,0.25)" },
 };
 
 const TIER_STYLE: Record<string, { label: string; bg: string; fg: string }> = {
-  TIER_1: { label: "T1", bg: "#fef3c7", fg: "#92400e" },
+  TIER_1: { label: "T1", bg: "rgba(255,215,0,0.15)", fg: "var(--warn-500)" },
   TIER_2: { label: "T2", bg: "var(--surface-3)", fg: "var(--text-3)" },
   TIER_3: { label: "T3", bg: "var(--surface-3)", fg: "var(--text-mute)" },
 };
@@ -78,9 +78,9 @@ function LayerTag({ label, text, untraced }: { label: string; text: string; untr
       style={{
         display: "inline-flex", alignItems: "center", gap: 4,
         padding: "2px 8px", borderRadius: 6, cursor: "pointer",
-        background: untraced ? "#fef3c7" : "var(--acc-950,#0f1629)",
-        border: `1px solid ${untraced ? "#fde68a" : "var(--acc-800,#1e2a55)"}`,
-        color: untraced ? "#92400e" : "var(--acc-300,#a5b4fc)",
+        background: untraced ? "rgba(255,215,0,0.10)" : "var(--acc-950,#0f1629)",
+        border: `1px solid ${untraced ? "rgba(255,215,0,0.30)" : "var(--acc-800,#1e2a55)"}`,
+        color: untraced ? "var(--warn-500)" : "var(--acc-300,#a5b4fc)",
         fontSize: 11, fontWeight: 600,
         userSelect: "none",
         maxWidth: open ? "none" : 140,
@@ -342,7 +342,7 @@ export function StorytellerPage() {
 
   // Avatar color from domain string
   function avatarColor(s: string) {
-    const palette = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#3b82f6"];
+    const palette = ["#8b5cf6","#00d4ff","#00ff96","#ffd700","#ff4646","#a78bfa","#f472b6","#2dd4bf","#fb923c","#60a5fa"];
     let h = 0;
     for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
     return palette[h % palette.length];
@@ -514,7 +514,7 @@ export function StorytellerPage() {
                       padding: "7px 16px", borderRadius: 9,
                       background: "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
                       color: "#fff", fontWeight: 700, fontSize: 12, textDecoration: "none",
-                      boxShadow: "0 2px 8px rgba(91,80,245,0.25)",
+                      boxShadow: "0 0 14px rgba(0,212,255,0.30), 0 2px 8px rgba(0,0,0,0.4)",
                       whiteSpace: "nowrap",
                     }}
                   >

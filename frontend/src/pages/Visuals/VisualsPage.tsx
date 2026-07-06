@@ -18,10 +18,10 @@ const CHANNEL_LABEL: Record<string, string> = {
 
 const CHANNEL_COLOR: Record<string, string> = {
   EMAIL:                "var(--acc-500)",
-  LINKEDIN_DM:          "#0ea5e9",
-  LINKEDIN_CONNECTION:  "#0284c7",
-  WHATSAPP:             "#22c55e",
-  REDDIT_STRATEGY_NOTE: "#f97316",
+  LINKEDIN_DM:          "var(--acc-300)",
+  LINKEDIN_CONNECTION:  "var(--acc-400)",
+  WHATSAPP:             "var(--good-500)",
+  REDDIT_STRATEGY_NOTE: "var(--warn-500)",
 };
 
 const CHANNEL_GLYPH: Record<string, string> = {

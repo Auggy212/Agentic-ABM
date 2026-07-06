@@ -4,22 +4,22 @@
 
 /* ── design tokens ── */
 :root {
-  --bg-0:   #020817;
-  --bg-1:   #060f24;
-  --bg-2:   #0a1628;
-  --surf:   rgba(255,255,255,0.04);
-  --bdr:    rgba(255,255,255,0.08);
-  --bdr-h:  rgba(255,255,255,0.15);
-  --cyan:   #22d3ee;
-  --cyan-d: #06b6d4;
-  --violet: #a855f7;
-  --green:  #10b981;
-  --amber:  #f59e0b;
+  --bg-0:   #030308;
+  --bg-1:   #06060f;
+  --bg-2:   #0a0a1a;
+  --surf:   rgba(255,255,255,0.03);
+  --bdr:    rgba(0,212,255,0.10);
+  --bdr-h:  rgba(0,212,255,0.25);
+  --cyan:   #00d4ff;
+  --cyan-d: #00b8e0;
+  --violet: #8b5cf6;
+  --green:  #00ff96;
+  --amber:  #ffd700;
   --pink:   #ec4899;
-  --text-1: #f1f5f9;
-  --text-2: rgba(241,245,249,0.55);
-  --text-3: rgba(241,245,249,0.28);
-  --acc:    #22d3ee;
+  --text-1: rgba(220,235,255,0.97);
+  --text-2: rgba(160,195,230,0.65);
+  --text-3: rgba(100,145,190,0.40);
+  --acc:    #00d4ff;
 }
 
 /* ── reset & base ── */
@@ -598,7 +598,7 @@
   font-size: 14px; color: var(--text-1);
   transition: border-color 0.15s, box-shadow 0.15s; outline: none;
 }
-.lp3-field input:focus { border-color: rgba(34,211,238,0.55); box-shadow: 0 0 0 3px rgba(34,211,238,0.12); }
+.lp3-field input:focus { border-color: rgba(0,212,255,0.50); box-shadow: 0 0 0 3px rgba(0,212,255,0.10), 0 0 16px rgba(0,212,255,0.08); }
 .lp3-field input::placeholder { color: var(--text-3); }
 .lp3-modal-switch { font-size: 13px; color: var(--text-3); text-align: center; margin: 0; }
 .lp3-modal-legal { font-size: 11px; color: var(--text-3); text-align: center; margin: 10px 0 0; line-height: 1.5; }

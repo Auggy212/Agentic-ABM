@@ -35,9 +35,15 @@ def _extract_domain(website: str) -> str:
     return domain
 
 
+def _normalise_row(row: dict) -> dict:
+    """Return a copy of row with all keys lowercased and spaces replaced by underscores."""
+    return {k.strip().lower().replace(" ", "_"): v for k, v in row.items()}
+
+
 def _row_to_company(row: dict) -> Optional[RawCompany]:
-    name = (row.get("Company Name") or row.get("company_name") or "").strip()
-    website = (row.get("Website") or row.get("website") or "").strip()
+    r = _normalise_row(row)
+    name = (r.get("company_name") or r.get("company") or "").strip()
+    website = (r.get("website") or r.get("website_url") or r.get("domain") or "").strip()
     if not name or not website:
         return None
     if not website.startswith("http"):
@@ -47,7 +53,7 @@ def _row_to_company(row: dict) -> Optional[RawCompany]:
     if not domain:
         return None
 
-    headcount_raw = row.get("Headcount") or row.get("Employees") or row.get("headcount")
+    headcount_raw = r.get("headcount") or r.get("employees") or r.get("employee_count")
     headcount: int | str = _NF
     if headcount_raw:
         try:
@@ -59,13 +65,13 @@ def _row_to_company(row: dict) -> Optional[RawCompany]:
         domain=domain,
         company_name=name,
         website=website,
-        linkedin_url=row.get("LinkedIn URL") or row.get("linkedin_url") or None,
-        industry=row.get("Industry") or row.get("industry") or _NF,
+        linkedin_url=r.get("linkedin_url") or r.get("linkedin") or None,
+        industry=r.get("industry") or r.get("vertical") or _NF,
         headcount=headcount,
-        estimated_arr=row.get("Estimated ARR") or row.get("estimated_arr") or _NF,
-        funding_stage=row.get("Funding Stage") or row.get("funding_stage") or _NF,
+        estimated_arr=r.get("estimated_arr") or r.get("arr") or _NF,
+        funding_stage=r.get("funding_stage") or r.get("stage") or _NF,
         last_funding_round=RawFundingRound(round=_NF, amount_usd=_NF, date=_NF),
-        hq_location=row.get("HQ Location") or row.get("location") or _NF,
+        hq_location=r.get("hq_location") or r.get("location") or r.get("city") or _NF,
         technologies_used=[],
         recent_signals=[],
         source=DataSource.CLIENT_UPLOAD,

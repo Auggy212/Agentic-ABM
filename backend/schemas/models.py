@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, Dict, List, Optional, Union
 from uuid import UUID
 
 from pydantic import AnyUrl, BaseModel, Field, RootModel, field_validator, model_validator
@@ -327,6 +327,14 @@ class AccountListMeta(BaseModel):
     tier_breakdown: TierBreakdown = Field(..., description="Count of accounts per tier")
     generated_at: datetime = Field(..., description="ISO 8601 generation timestamp")
     client_id: UUID = Field(..., description="Client/tenant UUID")
+    source_breakdown: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Number of accounts contributed by each source",
+    )
+    quota_warnings: List[str] = Field(
+        default_factory=list,
+        description="Any quota exhaustion warnings from this run",
+    )
 
     model_config = {"extra": "forbid"}
 
@@ -417,7 +425,7 @@ class BuyerProfile(BaseModel):
     email: Optional[str] = None
     email_status: EmailStatus = EmailStatus.UNVERIFIED
     phone: Optional[str] = None
-    linkedin_url: Optional[AnyUrl] = None
+    linkedin_url: Optional[str] = None  # plain str: Apollo returns http:// URLs; avoids AnyUrl serializer warnings
     tenure_current_role_months: Union[int, str]
     tenure_current_company_months: Union[int, str]
     past_experience: List[PastExperience] = Field(default_factory=list, max_length=3)
@@ -500,6 +508,7 @@ class SignalType(str, Enum):
     ICP_MATCH_NO_SIGNAL = "ICP_MATCH_NO_SIGNAL"
     INDUSTRY_EVENT = "INDUSTRY_EVENT"
     COMPETITOR_FOLLOW = "COMPETITOR_FOLLOW"
+    OTHER_NEWS = "OTHER_NEWS"
 
 
 class SignalSource(str, Enum):
@@ -508,6 +517,7 @@ class SignalSource(str, Enum):
     G2 = "G2"
     CRUNCHBASE = "CRUNCHBASE"
     REDDIT = "REDDIT"
+    WEB_SCRAPE = "WEB_SCRAPE"
 
 
 class BuyingStage(str, Enum):

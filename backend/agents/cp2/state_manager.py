@@ -14,9 +14,12 @@ HTTP layer — three independent checks for the highest-stakes gate.
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable, List, Optional, Tuple
+
+_CP2_LOAD_PAGE_SIZE = int(os.environ.get("CP2_LOAD_PAGE_SIZE", "500"))
 
 from sqlalchemy.orm import Session
 
@@ -125,6 +128,7 @@ def _audit(
     before: Any = None,
     after: Any = None,
 ) -> None:
+    """Stage an audit log entry — does NOT commit; caller is responsible for commit."""
     db.add(
         CP2AuditLogRecord(
             id=str(uuid.uuid4()),
@@ -138,7 +142,6 @@ def _audit(
             timestamp=_now(),
         )
     )
-    db.commit()
 
 
 def _load_record(db: Session, client_id: str) -> CP2ReviewStateRecord:
@@ -305,22 +308,37 @@ def open_review(
             "cannot open a new review without explicit reset"
         )
 
-    profiles = [
-        BuyerProfile.model_validate(record.data)
-        for record in (
+    profiles: List[BuyerProfile] = []
+    offset = 0
+    while True:
+        page = (
             db.query(BuyerProfileRecord)
             .filter(BuyerProfileRecord.client_id == client_id)
+            .order_by(BuyerProfileRecord.id)
+            .limit(_CP2_LOAD_PAGE_SIZE)
+            .offset(offset)
             .all()
         )
-    ]
-    reports = [
-        SignalReport.model_validate(record.data)
-        for record in (
+        profiles.extend(BuyerProfile.model_validate(r.data) for r in page)
+        if len(page) < _CP2_LOAD_PAGE_SIZE:
+            break
+        offset += _CP2_LOAD_PAGE_SIZE
+
+    reports: List[SignalReport] = []
+    offset = 0
+    while True:
+        page = (
             db.query(SignalReportRecord)
             .filter(SignalReportRecord.client_id == client_id)
+            .order_by(SignalReportRecord.id)
+            .limit(_CP2_LOAD_PAGE_SIZE)
+            .offset(offset)
             .all()
         )
-    ]
+        reports.extend(SignalReport.model_validate(r.data) for r in page)
+        if len(page) < _CP2_LOAD_PAGE_SIZE:
+            break
+        offset += _CP2_LOAD_PAGE_SIZE
 
     claims = _collect_buyer_pain_claims(profiles) + _collect_intel_report_claims(reports)
     domains = _collect_account_domains(profiles, reports)
@@ -352,7 +370,6 @@ def open_review(
         id=str(uuid.uuid4()),
         client_id=client_id,
     )
-    persisted = _persist(db, record, state)
     _audit(
         db,
         client_id=client_id,
@@ -361,7 +378,7 @@ def open_review(
         before=None,
         after={"total_claims": len(claims), "total_accounts": len(accounts)},
     )
-    return persisted
+    return _persist(db, record, state)
 
 
 def get_state(client_id: str, db: Session) -> CP2ReviewState:
@@ -403,7 +420,6 @@ def review_claim(
     new_claims[target_idx] = updated_claim
 
     new_state = state.model_copy(update={"inferred_claims_review": new_claims})
-    persisted = _persist(db, record, new_state)
     _audit(
         db,
         client_id=client_id,
@@ -414,7 +430,7 @@ def review_claim(
         before=before,
         after=updated_claim.model_dump(mode="json"),
     )
-    return persisted
+    return _persist(db, record, new_state)
 
 
 def approve_account(
@@ -463,7 +479,6 @@ def approve_account(
     new_accounts[target_idx] = updated_account
 
     new_state = state.model_copy(update={"account_approvals": new_accounts})
-    persisted = _persist(db, record, new_state)
     _audit(
         db,
         client_id=client_id,
@@ -473,7 +488,7 @@ def approve_account(
         before=before,
         after=updated_account.model_dump(mode="json"),
     )
-    return persisted
+    return _persist(db, record, new_state)
 
 
 def remove_account(
@@ -507,7 +522,6 @@ def remove_account(
     new_accounts[target_idx] = updated_account
 
     new_state = state.model_copy(update={"account_approvals": new_accounts})
-    persisted = _persist(db, record, new_state)
     _audit(
         db,
         client_id=client_id,
@@ -517,7 +531,7 @@ def remove_account(
         before=before,
         after=updated_account.model_dump(mode="json"),
     )
-    return persisted
+    return _persist(db, record, new_state)
 
 
 def approve_cp2(
@@ -544,16 +558,15 @@ def approve_cp2(
         "approved_at": _now(),
         "reviewer_notes": reviewer_notes,
     })
-    persisted = _persist(db, record, new_state)
     _audit(
         db,
         client_id=client_id,
         action="APPROVE_CP2",
         reviewer=reviewer,
         before={"status": state.status.value},
-        after={"status": persisted.status.value},
+        after={"status": CP2Status.APPROVED.value},
     )
-    return persisted
+    return _persist(db, record, new_state)
 
 
 def auto_approve_cp2(
@@ -608,16 +621,43 @@ def reject_cp2(
         "reviewer_notes": reason,
         "approved_at": None,
     })
-    persisted = _persist(db, record, new_state)
     _audit(
         db,
         client_id=client_id,
         action="REJECT_CP2",
         reviewer=reviewer,
         before={"status": state.status.value},
-        after={"status": persisted.status.value, "reason": reason},
+        after={"status": CP2Status.REJECTED.value, "reason": reason},
     )
-    return persisted
+    return _persist(db, record, new_state)
+
+
+def reset_review(
+    client_id: str,
+    reviewer: str,
+    db: Session,
+) -> CP2ReviewState:
+    """
+    Delete the existing CP2 record and re-open from scratch, re-aggregating
+    all current buyer profiles and signal reports. Safe to call on any status.
+    """
+    existing = (
+        db.query(CP2ReviewStateRecord)
+        .filter(CP2ReviewStateRecord.client_id == client_id)
+        .first()
+    )
+    if existing is not None:
+        db.delete(existing)
+        _audit(
+            db,
+            client_id=client_id,
+            action="RESET_REVIEW",
+            reviewer=reviewer,
+            before={"status": existing.status},
+            after=None,
+        )
+        db.commit()
+    return open_review(client_id, reviewer, db)
 
 
 def get_audit_log(client_id: str, db: Session) -> list[dict]:

@@ -100,9 +100,9 @@ function HowItWorksPanel({ onStart }: { onStart: () => void }) {
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; fg: string; border: string; desc: string }> = {
   NOT_STARTED: { label: "Not Started",  bg: "var(--surface-3)", fg: "var(--text-3)",   border: "var(--border)",     desc: "No one has opened this review yet." },
-  IN_REVIEW:   { label: "In Review",    bg: "#fef3c7",          fg: "#92400e",         border: "#fde68a",           desc: "Review is in progress." },
-  APPROVED:    { label: "Approved ✓",   bg: "var(--good-50)",   fg: "var(--good-700)", border: "var(--good-100)",   desc: "All claims reviewed and accounts approved." },
-  REJECTED:    { label: "Rejected",     bg: "var(--bad-50)",    fg: "var(--bad-700)",  border: "var(--bad-100)",    desc: "Review was rejected." },
+  IN_REVIEW: { label: "In Review",  bg: "rgba(255,215,0,0.08)", fg: "var(--warn-500)", border: "rgba(255,215,0,0.25)", desc: "Review is in progress." },
+  APPROVED:  { label: "Approved ✓", bg: "rgba(0,255,150,0.08)", fg: "var(--good-500)", border: "rgba(0,255,150,0.25)", desc: "All claims reviewed and accounts approved." },
+  REJECTED:  { label: "Rejected",   bg: "rgba(255,70,70,0.08)", fg: "var(--bad-500)",  border: "rgba(255,70,70,0.25)", desc: "Review was rejected." },
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export default function CP2ReviewPage() {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, color: pending > 0 ? "#92400e" : "var(--good-700)", fontWeight: 700 }}>
+            <div style={{ fontSize: 12, color: pending > 0 ? "var(--warn-500)" : "var(--good-500)", fontWeight: 700 }}>
               {pending > 0 ? `⚠ ${pending} claim${pending !== 1 ? "s" : ""} still need a decision` : "✓ All claims reviewed"}
             </div>
           </div>
@@ -214,7 +214,7 @@ export default function CP2ReviewPage() {
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-mute)" }}>Step 1 — Claims reviewed</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: claimsPct === 100 ? "var(--good-700)" : "var(--text-2)" }}>{claimsPct}%</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: claimsPct === 100 ? "var(--good-500)" : "var(--text-2)" }}>{claimsPct}%</span>
               </div>
               <div style={{ height: 7, background: "var(--surface-3)", borderRadius: 999, overflow: "hidden" }}>
                 <div data-testid="claims-progress-bar" style={{
@@ -230,12 +230,12 @@ export default function CP2ReviewPage() {
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-mute)" }}>Step 2 — Accounts approved</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: accountsPct === 100 ? "var(--good-700)" : "var(--text-2)" }}>{accountsPct}%</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: accountsPct === 100 ? "var(--good-500)" : "var(--text-2)" }}>{accountsPct}%</span>
               </div>
               <div style={{ height: 7, background: "var(--surface-3)", borderRadius: 999, overflow: "hidden" }}>
                 <div data-testid="accounts-progress-bar" style={{
                   height: "100%", borderRadius: 999, width: `${accountsPct}%`,
-                  background: accountsPct === 100 ? "var(--good-500)" : "#0ea5e9",
+                  background: accountsPct === 100 ? "var(--good-500)" : "var(--acc-300)",
                   transition: "width 0.4s ease",
                 }} />
               </div>
@@ -289,8 +289,8 @@ export default function CP2ReviewPage() {
             <span>Approve Accounts</span>
             <span style={{
               fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 999,
-              background: accountsPct === 100 ? "var(--good-100)" : "var(--surface-3)",
-              color: accountsPct === 100 ? "var(--good-700)" : "var(--text-3)",
+              background: accountsPct === 100 ? "rgba(0,255,150,0.25)" : "var(--surface-3)",
+              color: accountsPct === 100 ? "var(--good-500)" : "var(--text-3)",
             }}>{p.approved_accounts}/{p.total_accounts}</span>
           </button>
         </div>
@@ -309,9 +309,9 @@ export default function CP2ReviewPage() {
         )}
         {tab === "bulk" && (
           <div style={{
-            background: "#f0fdf4", border: "1px solid #bbf7d0",
+            background: "rgba(0,255,150,0.07)", border: "1px solid rgba(0,255,150,0.22)",
             borderRadius: 10, padding: "10px 16px",
-            fontSize: 12, color: "#14532d", lineHeight: 1.5,
+            fontSize: 12, color: "var(--good-500)", lineHeight: 1.5,
           }}>
             <strong>Step 2 of 3.</strong> Accounts unlock for approval once all their claims are reviewed.
             Approve accounts you want to keep in the pipeline — or remove ones that aren't a good fit.

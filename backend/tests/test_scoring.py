@@ -126,6 +126,8 @@ def _perfect_account() -> RawCompany:
         technologies_used=["HubSpot", "Salesforce", "Snowflake"],  # all 3 signals
         recent_signals=[
             _signal("JOB_POSTING", "Hiring new VP Sales", days_ago=5),
+            _signal("FUNDING", "Announced Series B funding round", days_ago=10),
+            _signal("HIRING", "Significant headcount growth across all departments", days_ago=15),
         ],
         source=DataSource.APOLLO,
         enriched_at=datetime.now(tz=timezone.utc),
@@ -329,8 +331,8 @@ class TestTechStackRule:
         (["hubspot", "SALESFORCE"], ["HubSpot", "Salesforce"], 1.0),
         # No ICP signals defined → 0
         (["HubSpot"], [], 0.0),
-        # Empty account tech
-        ([], ["HubSpot"], 0.0),
+        # Empty account tech — returns 0.2 (data missing, not disqualifying)
+        ([], ["HubSpot"], 0.2),
     ])
     def test_score_tech_stack_parametrized(self, account_tech, icp_signals, expected_frac) -> None:
         result = rules.score_tech_stack(account_tech, icp_signals)

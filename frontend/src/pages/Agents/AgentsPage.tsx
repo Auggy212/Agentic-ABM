@@ -1,47 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Icon from "@/components/ui/Icon";
-import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { useAgents } from "@/hooks/useAgents";
-import { usePipelineStage } from "@/hooks/usePipelineStage";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getActiveClientId } from "@/lib/session";
-import type { EventTone } from "@/types/agents";
 
-// ── Agent → run step mapping ──────────────────────────────────────────────────
-const AGENT_STEP: Record<string, string> = {
-  "icp-scout":        "icp_scout",
-  "buyer-intel":      "buyer_intel",
-  "signal-intel":     "signal_intel",
-  "cp2-review":       "cp2_auto_approve",
-  "verifier":         "verifier",
-  "storyteller":      "storyteller",
-};
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const AGENT_NEXT_STEP: Array<{ key: string; label: string; hint: string }> = [
-  { key: "icp_scout",    label: "Run ICP Scout",   hint: "Discover target accounts from your intake form." },
-  { key: "buyer_intel",  label: "Run Buyer Intel",  hint: "Find buyers and map committee roles at each account." },
-  { key: "signal_intel", label: "Run Signal Intel", hint: "Score accounts and generate Tier 1 intel reports." },
-  { key: "verification", label: "Run Verifier",     hint: "Verify buyer emails and signals before messaging." },
-  { key: "storyteller",  label: "Run Storyteller",  hint: "Generate personalised messages for each buyer." },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function toneIcon(tone: EventTone): Parameters<typeof Icon>[0]["name"] {
-  if (tone === "found") return "check";
-  if (tone === "warn")  return "warn";
-  if (tone === "block") return "ban";
-  return "play";
+interface RunStatus {
+  status: "idle" | "running" | "done" | "error";
+  message: string;
+  jobId?: string;
+  startedAt?: number;
 }
 
-function statusStyle(status: string) {
-  if (status === "running") return { dot: "var(--good-500)", label: "Running", bg: "var(--good-50)",  fg: "var(--good-700)" };
-  if (status === "idle")    return { dot: "var(--ink-300)",  label: "Idle",    bg: "var(--ink-100)",  fg: "var(--text-3)"   };
-  return                           { dot: "var(--acc-500)",  label: status,    bg: "var(--acc-50)",   fg: "var(--acc-700)"  };
-}
-
-// ── Automation hook ───────────────────────────────────────────────────────────
-interface AutoRunStatus {
+interface PipelineRunStatus {
   run_id: string;
   status: "queued" | "running" | "complete" | "failed";
   current_step: string | null;
@@ -49,378 +20,473 @@ interface AutoRunStatus {
   error: string | null;
 }
 
-function useRunStep() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (step: string) => {
-      const { data } = await api.post("/api/pipeline/run-step", {
-        client_id: getActiveClientId(),
-        step,
-      });
-      return data as AutoRunStatus;
-    },
-    onSuccess: () => {
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["agents"] }), 2000);
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["pipeline-stage"] }), 4000);
-    },
-  });
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function Skeleton({ w = "100%", h = 16, r = 4 }: { w?: string | number; h?: number; r?: number }) {
+  return <div style={{ width: w, height: h, borderRadius: r, background: "#f0f0ec" }} />;
 }
 
-function useRunAll() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (steps?: string[]) => {
-      const { data } = await api.post("/api/pipeline/run-all", {
-        client_id: getActiveClientId(),
-        steps: steps ?? null,
-      });
-      return data as AutoRunStatus & { steps: string[] };
-    },
-    onSuccess: () => {
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["agents"] }), 3000);
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["pipeline-stage"] }), 6000);
-    },
-  });
+function elapsed(startedAt?: number) {
+  if (!startedAt) return "";
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-// ── Pipeline run progress bar ─────────────────────────────────────────────────
-const STEP_LABELS: Record<string, string> = {
-  icp_scout:        "ICP Scout",
-  buyer_intel:      "Buyer Intel",
-  signal_intel:     "Signal Intel",
-  cp2_auto_approve: "Auto-approve CP2",
-  verifier:         "Verifier",
-  storyteller:      "Storyteller",
-};
+// ── Pipeline progress bar ─────────────────────────────────────────────────────
 
-function PipelineProgress({ runId }: { runId: string }) {
-  const [status, setStatus] = useState<AutoRunStatus | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+const PIPELINE_STEPS: { key: string; label: string }[] = [
+  { key: "icp_scout",        label: "ICP Scout" },
+  { key: "buyer_intel",      label: "Buyer Intel" },
+  { key: "signal_intel",     label: "Signal Intel" },
+  { key: "cp2_auto_approve", label: "CP2 Review" },
+  { key: "verifier",         label: "Verifier" },
+  { key: "storyteller",      label: "Storyteller" },
+];
+
+function PipelineProgress({ runId, onDone }: { runId: string; onDone: () => void }) {
+  const [status, setStatus] = useState<PipelineRunStatus | null>(null);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const poll = async () => {
       try {
-        const { data } = await api.get<AutoRunStatus>(`/api/pipeline/run-status/${runId}`);
+        const { data } = await api.get<PipelineRunStatus>(`/api/pipeline/run-status/${runId}`);
         setStatus(data);
         if (data.status === "complete" || data.status === "failed") {
-          if (intervalRef.current) clearInterval(intervalRef.current);
+          if (ref.current) clearInterval(ref.current);
+          onDone();
         }
       } catch { /* ignore */ }
     };
     poll();
-    intervalRef.current = setInterval(poll, 2000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [runId]);
+    ref.current = setInterval(poll, 2000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [runId, onDone]);
 
   if (!status) return null;
 
-  const steps = ["icp_scout", "buyer_intel", "signal_intel", "cp2_auto_approve", "verifier", "storyteller"];
+  const done = status.status === "complete";
+  const failed = status.status === "failed";
 
   return (
     <div style={{
-      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-      padding: "16px 20px", marginBottom: 4,
+      background: "#fff",
+      border: "1px solid #e7e7e3",
+      borderRadius: 6,
+      padding: "14px 16px",
+      marginBottom: 14,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>
-          {status.status === "running" ? "⚙ Pipeline running…" :
-           status.status === "complete" ? "✓ Pipeline complete" :
-           status.status === "failed"   ? "✗ Pipeline failed" : "⏳ Queued"}
-        </div>
-        <span style={{
-          fontSize: 11, fontFamily: "var(--font-mono)",
-          color: status.status === "complete" ? "var(--good-700)" : status.status === "failed" ? "var(--bad-700)" : "var(--text-3)",
-        }}>
-          {status.completed_steps.length}/{steps.length} steps
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: done ? "#047857" : failed ? "#be123c" : "#1a1d23" }}>
+          {done ? "✓ Pipeline complete" : failed ? "✗ Pipeline failed" : "⚙ Pipeline running…"}
+        </span>
+        <span style={{ fontSize: 12, color: "#8a8f9e" }}>
+          {status.completed_steps.length}/{PIPELINE_STEPS.length} steps
         </span>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {steps.map((s) => {
-          const done = status.completed_steps.includes(s);
-          const active = status.current_step === s;
-          const isFailed = status.status === "failed" && active && !done;
+        {PIPELINE_STEPS.map(({ key, label }) => {
+          const isDone   = status.completed_steps.includes(key);
+          const isActive = status.current_step === key;
+          const isFailed = failed && isActive;
           return (
-            <div key={s} style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
-              background: done ? "var(--good-50)" : isFailed ? "var(--bad-50)" : active ? "var(--acc-100)" : "var(--surface-2)",
-              color: done ? "var(--good-700)" : isFailed ? "var(--bad-700)" : active ? "var(--acc-700)" : "var(--text-3)",
-              border: `1px solid ${done ? "var(--good-100)" : isFailed ? "var(--bad-200)" : active ? "var(--acc-200)" : "var(--border)"}`,
+            <span key={key} style={{
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "3px 10px",
+              borderRadius: 20,
+              background: isDone ? "#e6f4ee" : isFailed ? "#fdeef0" : isActive ? "#eef0fb" : "#f5f5f1",
+              color:      isDone ? "#047857" : isFailed ? "#be123c" : isActive ? "#4338ca" : "#8a8f9e",
+              border: `1px solid ${isDone ? "#bbf7d0" : isFailed ? "#fecdd3" : isActive ? "#c7d2fe" : "#ededea"}`,
             }}>
-              {done ? "✓" : active ? <span style={{ animation: "abm-pulse 1s infinite" }}>⚙</span> : "·"}
-              {STEP_LABELS[s] ?? s}
-            </div>
+              {isDone ? "✓ " : isActive ? "⚙ " : ""}{label}
+            </span>
           );
         })}
       </div>
       {status.error && (
-        <div style={{ marginTop: 10, color: "var(--bad-700)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
-          Error: {status.error}
+        <div style={{ marginTop: 10, fontSize: 12, color: "#be123c", fontFamily: "monospace", wordBreak: "break-all" }}>
+          {status.error}
         </div>
       )}
     </div>
   );
 }
 
+// ── Agent card config ─────────────────────────────────────────────────────────
+
+interface AgentDef {
+  id: string;
+  step: string;
+  label: string;
+  description: string;
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+}
+
+const AGENTS: AgentDef[] = [
+  {
+    id: "icp-scout",
+    step: "icp_scout",
+    label: "ICP Scout",
+    description: "Discovers and scores target accounts from Apollo, Crunchbase, BuiltWith and other sources based on your intake form.",
+    icon: "⌂",
+    iconBg: "#eef1f5",
+    iconColor: "#475569",
+  },
+  {
+    id: "buyer-intel",
+    step: "buyer_intel",
+    label: "Buyer Intel",
+    description: "Enriches buying-committee contacts for all discovered accounts via Apollo people search. Returns emails and phone numbers.",
+    icon: "◎",
+    iconBg: "#eef0fb",
+    iconColor: "#4338ca",
+  },
+  {
+    id: "signal-intel",
+    step: "signal_intel",
+    label: "Signal Intel",
+    description: "Scans news, LinkedIn jobs, Reddit and G2 for buying signals across all target accounts.",
+    icon: "◉",
+    iconBg: "#fbf1e3",
+    iconColor: "#b45309",
+  },
+  {
+    id: "verifier",
+    step: "verifier",
+    label: "Verifier",
+    description: "Verifies buyer emails and detects job changes before outreach messages are generated.",
+    icon: "✓",
+    iconBg: "#e6f4ee",
+    iconColor: "#047857",
+  },
+  {
+    id: "storyteller",
+    step: "storyteller",
+    label: "Storyteller",
+    description: "Generates personalised outreach messages for each buyer using signal context and pain points.",
+    icon: "✉",
+    iconBg: "#f1edfb",
+    iconColor: "#7c3aed",
+  },
+];
+
 // ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function AgentsPage() {
-  const { data, isLoading, isError } = useAgents();
-  const { data: stage } = usePipelineStage();
-  const runStep  = useRunStep();
-  const runAll   = useRunAll();
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [runningSteps, setRunningSteps] = useState<Set<string>>(new Set());
+  const clientId = getActiveClientId();
+  const qc = useQueryClient();
 
-  const nextStep = stage
-    ? AGENT_NEXT_STEP.find((s) => (stage as unknown as Record<string, string>)[s.key] !== "done")
-    : null;
+  const [runStates, setRunStates] = useState<Record<string, RunStatus>>(
+    () => Object.fromEntries(AGENTS.map((a) => [a.step, { status: "idle", message: "" }]))
+  );
+  const [pipelineRunId, setPipelineRunId] = useState<string | null>(null);
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [, setTick] = useState(0);
 
-  const handleRunStep = (agentId: string) => {
-    const step = AGENT_STEP[agentId];
-    if (!step) return;
-    setRunningSteps((prev) => new Set(prev).add(step));
-    runStep.mutate(step, {
-      onSuccess: (data) => setActiveRunId(data.run_id),
-      onSettled: () => setRunningSteps((prev) => { const n = new Set(prev); n.delete(step); return n; }),
-    });
-  };
+  // Re-render every second while something is running (for elapsed timer)
+  const anyRunning = Object.values(runStates).some((s) => s.status === "running") || pipelineRunning;
+  useEffect(() => {
+    if (!anyRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [anyRunning]);
 
-  const handleRunAll = () => {
-    runAll.mutate(undefined, {
-      onSuccess: (data) => setActiveRunId(data.run_id),
-    });
-  };
-
-  const handleRunRemaining = () => {
-    if (!stage) return;
-    const stepsToRun = ["icp_scout", "buyer_intel", "signal_intel", "cp2_auto_approve", "verifier", "storyteller"].filter(
-      (s) => {
-        const stageKey = s === "cp2_auto_approve" ? "checkpoint_2" : s === "icp_scout" ? "icp_scout" : s;
-        return (stage as unknown as Record<string, string>)[stageKey] !== "done";
-      }
-    );
-    if (!stepsToRun.length) return;
-    runAll.mutate(stepsToRun, {
-      onSuccess: (data) => setActiveRunId(data.run_id),
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div style={{ minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <LoadingSpinner size="lg" label="Loading agents" />
-      </div>
-    );
+  function patchState(step: string, patch: Partial<RunStatus>) {
+    setRunStates((prev) => ({ ...prev, [step]: { ...prev[step], ...patch } }));
   }
 
-  if (isError || !data) {
-    return (
-      <div style={{ padding: 24 }}>
-        <div className="empty-state">
-          <div className="empty-icon">⚠</div>
-          <div className="empty-title">Failed to load agent data</div>
-          <div className="empty-sub">Check your connection and try again.</div>
-        </div>
-      </div>
-    );
+  async function runStep(agent: AgentDef) {
+    if (runStates[agent.step].status === "running") return;
+    patchState(agent.step, { status: "running", message: "Sending to pipeline…", startedAt: Date.now() });
+    try {
+      const { data } = await api.post("/api/pipeline/run-step", {
+        client_id: clientId,
+        step: agent.step,
+      });
+      setPipelineRunId(data.run_id);
+      patchState(agent.step, { message: `Job queued — ID: ${data.run_id?.slice(0, 8)}…` });
+      // Mark done after background task completes (poll handled by PipelineProgress)
+      setTimeout(() => {
+        patchState(agent.step, { status: "done", message: "Complete — check the relevant page for results." });
+        qc.invalidateQueries({ queryKey: ["buyers", clientId] });
+        qc.invalidateQueries({ queryKey: ["accounts", clientId] });
+      }, 12000);
+    } catch (err: unknown) {
+      const e = err as { response?: { status: number; data?: { detail?: string } } };
+      const detail = e?.response?.data?.detail ?? String(err);
+      patchState(agent.step, { status: "error", message: `${e?.response?.status ?? "Network error"}: ${detail}` });
+    }
   }
 
-  const { agents, events } = data;
-  const runningCount = agents.filter((a) => a.status === "running").length;
-  const isAutomating = runAll.isPending || (activeRunId != null && !runAll.isIdle && !runAll.isError);
+  async function runAll(fresh: boolean) {
+    if (pipelineRunning) return;
+    setPipelineRunning(true);
+    try {
+      const { data } = await api.post("/api/pipeline/run-all", {
+        client_id: clientId,
+        steps: fresh ? null : undefined,
+      });
+      setPipelineRunId(data.run_id);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      alert(`Pipeline start failed: ${e?.response?.data?.detail ?? String(err)}`);
+      setPipelineRunning(false);
+    }
+  }
+
+  // Stats
+  const { data: accountData, isLoading: accLoading } = useQuery({
+    queryKey: ["accounts", clientId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/accounts?client_id=${clientId}&page_size=1`);
+      return data;
+    },
+  });
+
+  const { data: buyerData, isLoading: buyerLoading } = useQuery({
+    queryKey: ["buyers", clientId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/buyers?client_id=${clientId}`);
+      return data;
+    },
+  });
+
+  const totalAccounts = accountData?.total ?? 0;
+  const totalContacts = buyerData?.meta?.total_contacts_found ?? 0;
+  const pendingDomains: string[] = buyerData?.meta?.pending_domains ?? [];
+  const buyerRunStatus: string = buyerData?.meta?.status ?? "—";
+
+  const stats = [
+    { label: "Accounts discovered", value: totalAccounts, loading: accLoading,  icon: "⌂", iconBg: "#eef1f5", iconColor: "#475569" },
+    { label: "Contacts enriched",   value: totalContacts, loading: buyerLoading, icon: "◎", iconBg: "#eef0fb", iconColor: "#4338ca" },
+    { label: "Pending domains",     value: pendingDomains.length, loading: buyerLoading, icon: "⏳", iconBg: "#fbf1e3", iconColor: "#b45309" },
+    { label: "Last Buyer Intel",    value: buyerRunStatus, loading: buyerLoading, icon: "◉", iconBg: "#e6f4ee", iconColor: "#047857" },
+  ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* ── Page Hero ── */}
-      <div className="page-hero">
-        <div className="ph-left">
-          <div className="ph-eyebrow">Agent Console</div>
-          <h1 className="ph-title">Live Agent Activity</h1>
-          <p className="ph-subtitle">
-            Run agents individually or automate the full pipeline with one click.
-          </p>
-        </div>
-        <div className="ph-kpis">
-          <div className="ph-kpi">
-            <div className="ph-kpi-label">Agents</div>
-            <div className="ph-kpi-num">{agents.length}</div>
-          </div>
-          <div className="ph-kpi" data-tone={runningCount > 0 ? "green" : undefined}>
-            <div className="ph-kpi-label">Running</div>
-            <div className="ph-kpi-num">{runningCount}</div>
-          </div>
-          <div className="ph-kpi">
-            <div className="ph-kpi-label">Events</div>
-            <div className="ph-kpi-num">{events.length}</div>
-          </div>
-        </div>
+    <div>
+      {/* ── Header ── */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ margin: "0 0 4px", fontSize: 21, fontWeight: 700, letterSpacing: "-0.02em" }}>
+          Agent Control Panel
+        </h1>
+        <p style={{ margin: 0, fontSize: 13, color: "#8a8f9e" }}>
+          Manually trigger pipeline agents or run the full pipeline end-to-end.
+        </p>
       </div>
 
-      <div className="page-body" style={{ display: "grid", gap: 18 }}>
-
-        {/* ── Automation controls ── */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
-          background: "var(--acc-950)", border: "1px solid var(--acc-800)", borderRadius: 12,
-        }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: "var(--acc-200)", fontSize: 14 }}>
-              🤖 Automated Pipeline
-            </div>
-            <div style={{ color: "var(--acc-400)", fontSize: 12, marginTop: 2 }}>
-              Run the full pipeline end-to-end — ICP Scout → Buyer Intel → Signal Intel → CP2 → Verifier → Storyteller
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <button
-              className="btn-primary"
-              disabled={isAutomating}
-              onClick={handleRunRemaining}
-              style={{ fontSize: 13, padding: "8px 16px" }}
-            >
-              {isAutomating ? "Running…" : "▶ Run Remaining"}
-            </button>
-            <button
-              style={{
-                fontSize: 12, padding: "8px 14px", borderRadius: 8, cursor: "pointer",
-                background: "rgba(255,255,255,0.08)", color: "var(--acc-200)",
-                border: "1px solid var(--acc-700)",
-              }}
-              disabled={isAutomating}
-              onClick={handleRunAll}
-            >
-              ↺ Run All (Fresh)
-            </button>
-          </div>
-        </div>
-
-        {/* ── Pipeline progress ── */}
-        {activeRunId && <PipelineProgress runId={activeRunId} />}
-
-        {/* ── Next step hint ── */}
-        {nextStep && !isAutomating && (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 14, padding: "12px 16px",
-            background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10,
-          }}>
-            <span style={{ fontSize: 16 }}>👉</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>Next: {nextStep.label}</div>
-              <div style={{ color: "var(--text-3)", fontSize: 12 }}>{nextStep.hint}</div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Agent cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-          {agents.map((a) => {
-            const s = statusStyle(a.status);
-            const step = AGENT_STEP[a.id];
-            const isStepRunning = step ? runningSteps.has(step) : false;
-            const canRun = !!step && a.status !== "running" && !isStepRunning && !isAutomating;
-
-            return (
-              <div key={a.id} className="card" style={{ borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ height: 3, background: s.dot, opacity: 0.7 }} />
-                <div style={{ padding: "16px 18px", display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: "linear-gradient(135deg, var(--acc-600), var(--acc-800))",
-                      color: "white", display: "grid", placeItems: "center", flexShrink: 0,
-                    }}>
-                      <Icon name={a.icon as Parameters<typeof Icon>[0]["name"]} size={17} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</div>
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", gap: 5, marginTop: 3,
-                        borderRadius: 999, background: s.bg, color: s.fg,
-                        padding: "2px 8px", fontSize: 10.5, fontWeight: 700,
-                      }}>
-                        <span style={{
-                          width: 5, height: 5, borderRadius: "50%", background: s.dot,
-                          animation: a.status === "running" ? "abm-pulse 2s infinite" : undefined,
-                        }} />
-                        {isStepRunning ? "Queued…" : s.label}
-                      </span>
-                    </div>
-                    {/* Run button */}
-                    {step && (
-                      <button
-                        onClick={() => handleRunStep(a.id)}
-                        disabled={!canRun}
-                        style={{
-                          flexShrink: 0, padding: "6px 14px", borderRadius: 8, fontSize: 12,
-                          fontWeight: 700, cursor: canRun ? "pointer" : "not-allowed",
-                          background: canRun ? "var(--acc-600)" : "var(--surface-2)",
-                          color: canRun ? "#fff" : "var(--text-3)",
-                          border: "none", transition: "background 0.15s",
-                        }}
-                      >
-                        {a.status === "running" || isStepRunning ? "⚙…" : "▶ Run"}
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.55 }}>{a.description}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-mute)", fontFamily: "var(--font-mono)" }}>{a.runs}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ── Live Activity ── */}
-        <div className="card" style={{ borderRadius: 12, overflow: "hidden" }}>
-          <div style={{
-            padding: "12px 18px", borderBottom: "1px solid var(--border)",
-            background: "var(--surface-2)", display: "flex", alignItems: "center", gap: 10,
+      {/* ── Stat row ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+        {stats.map((s) => (
+          <div key={s.label} style={{
+            background: "#fff",
+            border: "1px solid #e7e7e3",
+            borderRadius: 6,
+            padding: "14px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
           }}>
             <div style={{
-              fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase",
-              letterSpacing: "0.16em", color: "var(--text-mute)", fontWeight: 600,
+              width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+              background: s.iconBg, color: s.iconColor,
+              display: "grid", placeItems: "center", fontSize: 16,
             }}>
-              Live Activity
+              {s.icon}
             </div>
-            <span style={{
-              marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5,
-              fontSize: 11, color: runningCount > 0 ? "var(--good-700)" : "var(--text-mute)",
-              fontFamily: "var(--font-mono)",
-            }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: runningCount > 0 ? "var(--good-500)" : "var(--ink-300)",
-                animation: runningCount > 0 ? "abm-pulse 2s infinite" : undefined,
-              }} />
-              {runningCount > 0 ? `${runningCount} active` : "idle"}
-            </span>
+            <div style={{ minWidth: 0 }}>
+              {s.loading
+                ? <Skeleton w={48} h={20} />
+                : <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1d23" }}>{s.value}</div>
+              }
+              <div style={{ fontSize: 11, color: "#8a8f9e", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {s.label}
+              </div>
+            </div>
           </div>
+        ))}
+      </div>
 
-          {events.length === 0 ? (
-            <div style={{ padding: "48px 24px", textAlign: "center" }}>
-              <div className="empty-icon" style={{ margin: "0 auto 12px" }}>▶</div>
-              <div className="empty-title">No activity yet</div>
-              <div className="empty-sub">Click ▶ Run on any agent card above to start.</div>
-            </div>
-          ) : (
-            <div className="agent-feed">
-              {events.map((e) => (
-                <div key={e.id} className="agent-event" data-tone={e.tone}>
-                  <div className="agent-event-time">{e.time}</div>
-                  <div className="agent-event-icon">
-                    <Icon name={toneIcon(e.tone)} size={11} />
-                  </div>
-                  <div>
-                    <div className="agent-event-title"><strong>{e.agent}</strong> · {e.title}</div>
-                    <div className="agent-event-meta">{e.meta}</div>
-                  </div>
-                  <div className="agent-event-stat">{e.stat}</div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* ── Pipeline automation bar ── */}
+      <div style={{
+        background: "#fff",
+        border: "1px solid #e7e7e3",
+        borderRadius: 6,
+        padding: "14px 16px",
+        marginBottom: 14,
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+      }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1d23", marginBottom: 2 }}>
+            Full Pipeline
+          </div>
+          <div style={{ fontSize: 12, color: "#8a8f9e" }}>
+            ICP Scout → Buyer Intel → Signal Intel → CP2 → Verifier → Storyteller
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={() => runAll(false)}
+            disabled={pipelineRunning}
+            style={{
+              height: 34, padding: "0 16px", borderRadius: 6,
+              border: "1px solid #e7e7e3",
+              background: pipelineRunning ? "#f5f5f1" : "#fff",
+              cursor: pipelineRunning ? "not-allowed" : "pointer",
+              fontSize: 13, fontWeight: 500,
+              color: pipelineRunning ? "#c4c4be" : "#3a3f4c",
+            }}
+          >
+            {pipelineRunning ? "Running…" : "▶ Run remaining"}
+          </button>
+          <button
+            onClick={() => runAll(true)}
+            disabled={pipelineRunning}
+            style={{
+              height: 34, padding: "0 16px", borderRadius: 6,
+              border: "1px solid #e7e7e3",
+              background: "#f5f5f1",
+              cursor: pipelineRunning ? "not-allowed" : "pointer",
+              fontSize: 13, fontWeight: 500,
+              color: pipelineRunning ? "#c4c4be" : "#8a8f9e",
+            }}
+          >
+            ↺ Run all fresh
+          </button>
         </div>
       </div>
+
+      {/* ── Pipeline progress ── */}
+      {pipelineRunId && (
+        <PipelineProgress
+          runId={pipelineRunId}
+          onDone={() => {
+            setPipelineRunning(false);
+            qc.invalidateQueries({ queryKey: ["buyers", clientId] });
+            qc.invalidateQueries({ queryKey: ["accounts", clientId] });
+          }}
+        />
+      )}
+
+      {/* ── Pending domains warning ── */}
+      {pendingDomains.length > 0 && (
+        <div style={{
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          borderRadius: 6,
+          padding: "12px 16px",
+          marginBottom: 14,
+          fontSize: 13,
+          color: "#92400e",
+        }}>
+          <strong>{pendingDomains.length} domain(s) skipped</strong> due to quota — re-run Buyer Intel when credits reset.
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {pendingDomains.map((d) => (
+              <span key={d} style={{
+                fontSize: 11, padding: "2px 8px", borderRadius: 4,
+                background: "rgba(245,158,11,0.12)", color: "#92400e",
+                border: "1px solid #fde68a",
+              }}>
+                {d}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Agent cards ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+        {AGENTS.map((agent) => {
+          const state = runStates[agent.step];
+          const running = state.status === "running";
+          const done    = state.status === "done";
+          const error   = state.status === "error";
+
+          const pillBg    = running ? "#fbf1e3" : done ? "#e6f4ee" : error ? "#fdeef0" : "#f5f5f1";
+          const pillColor = running ? "#b45309" : done ? "#047857" : error ? "#be123c" : "#8a8f9e";
+          const pillLabel = running ? `Running · ${elapsed(state.startedAt)}` : done ? "Complete" : error ? "Failed" : "Ready";
+
+          return (
+            <div key={agent.id} style={{
+              background: "#fff",
+              border: "1px solid #e7e7e3",
+              borderRadius: 6,
+              padding: "16px 17px",
+            }}>
+              {/* Card header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+                  background: agent.iconBg, color: agent.iconColor,
+                  display: "grid", placeItems: "center", fontSize: 18,
+                }}>
+                  {agent.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1d23" }}>{agent.label}</div>
+                  <span style={{
+                    display: "inline-block", marginTop: 3,
+                    fontSize: 10.5, fontWeight: 600, padding: "2px 8px",
+                    borderRadius: 20, background: pillBg, color: pillColor,
+                  }}>
+                    {pillLabel}
+                  </span>
+                </div>
+                <button
+                  onClick={() => runStep(agent)}
+                  disabled={running || pipelineRunning}
+                  style={{
+                    flexShrink: 0,
+                    height: 32, padding: "0 14px", borderRadius: 6,
+                    border: "1px solid #e7e7e3",
+                    background: running || pipelineRunning ? "#f5f5f1" : "#fff",
+                    cursor: running || pipelineRunning ? "not-allowed" : "pointer",
+                    fontSize: 12.5, fontWeight: 500,
+                    color: running || pipelineRunning ? "#c4c4be" : "#3a3f4c",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  {running
+                    ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> Running</>
+                    : <><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</>
+                  }
+                </button>
+              </div>
+
+              {/* Description */}
+              <div style={{ fontSize: 12.5, color: "#8a8f9e", lineHeight: 1.55 }}>
+                {agent.description}
+              </div>
+
+              {/* Status message */}
+              {state.message && (
+                <div style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  padding: "7px 10px",
+                  borderRadius: 5,
+                  background: error ? "#fff5f5" : "#f5f5f1",
+                  color: error ? "#be123c" : "#6b7180",
+                  fontFamily: error ? "monospace" : "inherit",
+                  wordBreak: "break-all",
+                  lineHeight: 1.4,
+                }}>
+                  {state.message}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

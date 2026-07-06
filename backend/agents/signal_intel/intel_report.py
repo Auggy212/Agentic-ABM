@@ -1,14 +1,10 @@
 """
 Tier 1 Account Intelligence Report builder.
 
-Two-stage pipeline:
-  Stage A: Perplexity API — parallel research on strategic priorities, tech stack,
-           competitive landscape, and recent news.
-  Stage B: Claude API — synthesize all Perplexity outputs + buyer intel + master
-           context into a structured IntelReport with [VERIFIED]/[INFERRED] tags.
-
-Every claim in the output MUST be tagged [VERIFIED] or [INFERRED].
-The Verifier (Phase 3) blocks anything without a tag.
+Single-stage pipeline using OpenAI only:
+  - gpt-4o-mini researches and synthesizes the intel report in one call.
+  - Every claim is tagged [VERIFIED] or [INFERRED].
+  - The Verifier (Phase 3) blocks anything without a tag.
 """
 
 from __future__ import annotations
@@ -21,6 +17,7 @@ from datetime import datetime, timezone
 import httpx
 
 from backend.schemas.models import (
+    AccountSignal,
     BuyerIntelPackage,
     CompetitiveLandscapeEntry,
     EvidenceStatus,
@@ -34,11 +31,9 @@ from backend.schemas.models import (
 
 logger = logging.getLogger(__name__)
 
-PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-OPENAI_MODEL = "gpt-5.4-mini"
+OPENAI_MODEL = os.environ.get("OPENAI_INTEL_MODEL", "gpt-4o-mini")
 
 _INTEL_SCHEMA_SUMMARY = """{
   "company_snapshot": "string — narrative paragraph, every claim tagged [VERIFIED] or [INFERRED]",
@@ -51,80 +46,41 @@ _INTEL_SCHEMA_SUMMARY = """{
   "recommended_angle": "string"
 }"""
 
-_SYNTHESIS_SYSTEM = f"""You are an ABM intelligence analyst. Synthesize research into a structured Account Intelligence Report.
+_SYSTEM_PROMPT = f"""You are an ABM intelligence analyst. Given a target company and context, produce a structured Account Intelligence Report grounded in publicly known facts and explicit inference.
 
-CRITICAL TAGGING RULE: Every factual claim MUST be tagged [VERIFIED] (citation present in research) or [INFERRED] (your analysis, no direct citation). Mixing tags or omitting them is a failure mode. The Verifier agent will block any claim without a tag.
+TAGGING RULE — every factual claim must carry one of two inline tags:
+  [VERIFIED]  = widely known, publicly documented fact (e.g. IPO date, published headcount, named acquisition)
+  [INFERRED]  = your reasoned analysis based on patterns, role, industry, or signal data
+
+Example of correct company_snapshot:
+  "Acme Corp [VERIFIED] went public in 2021 and operates in 32 countries [VERIFIED]. Their recent \
+hiring surge in data engineering [INFERRED] suggests a push toward self-serve analytics. \
+The appointment of a new CISO [VERIFIED] likely signals a security compliance initiative [INFERRED]."
+
+Omitting tags on ANY claim is a failure mode. Hedge inferences explicitly.
 
 Return ONLY valid JSON matching this schema:
 {_INTEL_SCHEMA_SUMMARY}
 
 Constraints:
-- recent_news: max 3 items
+- recent_news: max 3 items, dates in YYYY-MM-DD format; only include events you are confident actually occurred
 - inferred_pain_points: evidence_status MUST be "INFERRED" for every entry
-- source_url: use the actual URL from research if available, otherwise "not_found"
-- company_snapshot: a 2-3 sentence narrative with [VERIFIED] or [INFERRED] inline tags on every factual claim"""
+- source_url: real known URL if you know it, otherwise "not_found"
+- company_snapshot: 2-3 sentences, every claim tagged inline
+- strategic_priorities: max 5 items
+- competitive_landscape: max 5 items"""
 
 
-async def _perplexity_research(
+async def _openai_generate(
     company_name: str,
     domain: str,
-    client_company_name: str,
-) -> dict[str, str]:
-    """Run 4 Perplexity queries in parallel and return a dict of results."""
-    if not PERPLEXITY_API_KEY:
-        logger.warning("IntelReport: PERPLEXITY_API_KEY not set — skipping research")
-        return {}
-
-    questions = {
-        "strategic_priorities": f"What are {company_name}'s top 3 strategic priorities in 2025? Cite sources with URLs.",
-        "tech_stack": f"What technologies and tools does {company_name} currently use? List with sources.",
-        "competitive_landscape": f"Which competitors of {client_company_name} is {company_name} currently using or evaluating? Cite sources.",
-        "recent_news": f"What are the most significant news events for {company_name} in the last 60 days? Top 3 with dates and sources.",
-    }
-
-    results: dict[str, str] = {}
-
-    async def _query(key: str, question: str) -> None:
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    PERPLEXITY_URL,
-                    headers={
-                        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "llama-3.1-sonar-large-128k-online",
-                        "messages": [
-                            {"role": "system", "content": "Be precise and always include source URLs."},
-                            {"role": "user", "content": question},
-                        ],
-                        "return_citations": True,
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
-                results[key] = content
-        except Exception as exc:
-            logger.warning("IntelReport: Perplexity query '%s' failed: %s", key, exc)
-            results[key] = ""
-
-    import asyncio
-    await asyncio.gather(*[_query(k, q) for k, q in questions.items()])
-    return results
-
-
-async def _claude_synthesize(
-    company_name: str,
-    domain: str,
-    research: dict[str, str],
     buyer_intel: BuyerIntelPackage | None,
     master_context: MasterContext,
+    signals: list[AccountSignal] | None = None,
 ) -> dict | None:
-    """Synthesize research into IntelReport JSON via Claude. Retries once on failure."""
+    """Generate the full intel report in one OpenAI call. Retries once on failure."""
     if not OPENAI_API_KEY:
-        logger.warning("IntelReport: OPENAI_API_KEY not set — cannot synthesize")
+        logger.warning("IntelReport: OPENAI_API_KEY not set — cannot generate report")
         return None
 
     buyer_summary = ""
@@ -134,65 +90,52 @@ async def _claude_synthesize(
             f"{c.full_name} ({c.committee_role.value})"
             for c in contacts[:5]
         )
-        buyer_summary = f"Buying committee: {roles_summary}"
+        buyer_summary = f"\nBuying committee at this account: {roles_summary}"
 
-    user_message = f"""Company: {company_name} ({domain})
-Client company (your client): {master_context.company.name}
+    signals_summary = ""
+    if signals:
+        top = sorted(signals, key=lambda s: s.intent_level.value, reverse=True)[:5]
+        lines = [f"- [{s.intent_level.value}] {s.type.value}: {s.description[:120]}" for s in top]
+        signals_summary = "\nObserved buying signals (use to inform strategic_priorities and inferred_pain_points):\n" + "\n".join(lines)
 
-Research inputs:
-Strategic priorities: {research.get('strategic_priorities', 'No data')}
+    user_message = f"""Target account: {company_name} (domain: {domain})
+Client company (your client selling to this account): {master_context.company.name}
+Client ICP industries: {', '.join(master_context.icp.industries[:3])}
+Competitors tracked by client: {', '.join(c.name for c in master_context.competitors[:3])}
+Buyer pain points the client solves: {', '.join(master_context.buyers.pain_points[:3])}{buyer_summary}{signals_summary}
 
-Tech stack: {research.get('tech_stack', 'No data')}
-
-Competitive landscape: {research.get('competitive_landscape', 'No data')}
-
-Recent news: {research.get('recent_news', 'No data')}
-
-{buyer_summary}
-
-Client ICP context: Targeting {', '.join(master_context.icp.industries[:3])} companies.
-Competitors tracked: {', '.join(c.name for c in master_context.competitors[:3])}.
-
-Produce the IntelReport JSON now."""
+Using your knowledge of {company_name} and the signals above, produce the Account Intelligence Report JSON now."""
 
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
                     OPENAI_URL,
                     headers={
                         "Authorization": f"Bearer {OPENAI_API_KEY}",
-                        "content-type": "application/json",
+                        "Content-Type": "application/json",
                     },
                     json={
                         "model": OPENAI_MODEL,
-                        "max_tokens": 2000,
+                        "max_tokens": 2500,
+                        "temperature": 0.3,
                         "messages": [
-                            {"role": "system", "content": _SYNTHESIS_SYSTEM},
+                            {"role": "system", "content": _SYSTEM_PROMPT},
                             {"role": "user", "content": user_message},
                         ],
+                        "response_format": {"type": "json_object"},
                     },
                 )
                 resp.raise_for_status()
                 data = resp.json()
                 text = data["choices"][0]["message"]["content"].strip()
-
-                # Strip markdown code blocks if present
-                if text.startswith("```"):
-                    text = text.split("```")[1]
-                    if text.startswith("json"):
-                        text = text[4:]
-                    text = text.strip()
-
-                parsed = json.loads(text)
-                return parsed
+                return json.loads(text)
 
         except json.JSONDecodeError as exc:
-            logger.warning("IntelReport: Claude returned invalid JSON (attempt %d): %s", attempt + 1, exc)
-            if attempt == 1:
-                return None
+            logger.warning("IntelReport: invalid JSON from OpenAI (attempt %d): %s", attempt + 1, exc)
+            return None  # retrying won't fix a malformed response
         except Exception as exc:
-            logger.error("IntelReport: Claude synthesis failed (attempt %d): %s", attempt + 1, exc)
+            logger.error("IntelReport: OpenAI call failed (attempt %d): %s", attempt + 1, exc)
             if attempt == 1:
                 return None
 
@@ -200,7 +143,7 @@ Produce the IntelReport JSON now."""
 
 
 def _build_intel_report(raw: dict, company_name: str) -> IntelReport | None:
-    """Parse Claude's JSON output into an IntelReport Pydantic model."""
+    """Parse OpenAI's JSON output into an IntelReport Pydantic model."""
     try:
         strategic_priorities = [
             StrategicPriority(
@@ -231,9 +174,8 @@ def _build_intel_report(raw: dict, company_name: str) -> IntelReport | None:
             for item in (raw.get("inferred_pain_points") or [])[:5]
         ]
 
-        recent_news_raw = (raw.get("recent_news") or [])[:3]
         recent_news = []
-        for item in recent_news_raw:
+        for item in (raw.get("recent_news") or [])[:3]:
             try:
                 from datetime import date
                 date_str = item.get("date", "")
@@ -244,7 +186,7 @@ def _build_intel_report(raw: dict, company_name: str) -> IntelReport | None:
                 recent_news.append(RecentNewsItem(
                     headline=item.get("headline", ""),
                     date=news_date,
-                    source_url=item.get("source_url", f"https://example.com/{company_name.lower().replace(' ', '-')}-news"),
+                    source_url=item.get("source_url", "not_found"),
                     summary=item.get("summary", ""),
                 ))
             except Exception:
@@ -259,7 +201,7 @@ def _build_intel_report(raw: dict, company_name: str) -> IntelReport | None:
             recent_news=recent_news,
             buying_committee_summary=raw.get("buying_committee_summary", ""),
             recommended_angle=raw.get("recommended_angle", ""),
-            generated_by=GeneratedBy(researcher="perplexity", synthesizer="claude-sonnet-4"),
+            generated_by=GeneratedBy(researcher="openai", synthesizer="openai"),
             generated_at=datetime.now(timezone.utc),
         )
 
@@ -273,20 +215,18 @@ async def generate_intel_report(
     domain: str,
     buyer_intel: BuyerIntelPackage | None,
     master_context: MasterContext,
+    signals: list[AccountSignal] | None = None,
 ) -> IntelReport | None:
     """
-    Full two-stage pipeline: Perplexity research → Claude synthesis.
-
+    Generate an Account Intelligence Report using OpenAI.
     Returns IntelReport on success, None on failure.
     Called only for TIER_1 accounts.
     """
-    logger.info("IntelReport: starting for domain=%s", domain)
+    logger.info("IntelReport: generating for domain=%s", domain)
 
-    research = await _perplexity_research(company_name, domain, master_context.company.name)
-
-    raw = await _claude_synthesize(company_name, domain, research, buyer_intel, master_context)
+    raw = await _openai_generate(company_name, domain, buyer_intel, master_context, signals)
     if not raw:
-        logger.warning("IntelReport: synthesis failed for domain=%s", domain)
+        logger.warning("IntelReport: generation failed for domain=%s", domain)
         return None
 
     report = _build_intel_report(raw, company_name)

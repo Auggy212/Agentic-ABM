@@ -20,11 +20,14 @@ in the CP2 review UI for human audit. Never use an LLM here; must be determinist
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Optional
 
 from backend.agents.icp_scout.sources.apollo import RawContact
 from backend.schemas.models import CommitteeRole, MasterContext, Seniority
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Lookup tables
@@ -106,13 +109,15 @@ def _department_aligns_with_icp(department: str, icp_titles: list[str]) -> bool:
     """
     Return True if the contact's department name overlaps with any ICP buyer
     title keyword (e.g. department="Sales", icp_titles=["VP Sales", "CRO"]).
+    Uses word-boundary matching to prevent "mark" matching "marketing".
     """
+    if not icp_titles:
+        return False
     dept_n = _normalise(department)
     for title in icp_titles:
         title_n = _normalise(title)
-        # Each word in the ICP title that is longer than 3 chars
         words = [w for w in re.split(r"\W+", title_n) if len(w) > 3]
-        if any(w in dept_n for w in words):
+        if any(re.search(r"\b" + re.escape(w) + r"\b", dept_n) for w in words):
             return True
     return False
 
@@ -154,6 +159,9 @@ def map_committee_role(
     seniority = contact.seniority_label
     department = contact.department
     icp_titles: list[str] = master_context.buyers.titles
+
+    if not icp_titles:
+        logger.warning("map_committee_role: no ICP titles configured — CHAMPION/DM detection by title match will be skipped")
 
     rank = _seniority_rank(seniority, title)
 

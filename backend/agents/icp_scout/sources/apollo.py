@@ -327,7 +327,16 @@ class ApolloSource(BaseSource):
         titles: list[str],
         seniority_levels: list[str],
         max_results: int = 10,
+        reveal: bool = True,
     ) -> list[RawContact]:
+        """
+        Search for contacts at a domain.
+
+        reveal=True  — include personal email + phone reveal flags (costs credits).
+        reveal=False — work email only via standard search (zero credits consumed).
+                       Use when credits are exhausted; Apollo returns the free `email`
+                       field which the fixed parser now reads correctly.
+        """
         if not self._api_key:
             logger.warning("ApolloSource: APOLLO_API_KEY not set — skipping contact search")
             return []
@@ -343,27 +352,43 @@ class ApolloSource(BaseSource):
             "person_seniorities": seniority_levels,
             "per_page": max_results,
             "page": 1,
+            "contact_email_status[]": ["verified", "guessed", "unavailable", "bounced", "pending_manual_fulfillment"],
         }
+        # NOTE: the api_search (people search) endpoint returns only obfuscated
+        # preview stubs — it never returns emails/phones, and the reveal_* flags
+        # are silently ignored here. Actual contact data must be fetched per-person
+        # via enrich_person() (the people/match endpoint). See enrich_person below.
 
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    f"{APOLLO_BASE_URL}/mixed_people/api_search",
-                    headers=headers,
-                    json=body,
-                )
-                if resp.status_code == 429:
-                    logger.warning("ApolloSource contact HTTP 429: rate limit hit — stopping further calls")
-                    raise ApolloRateLimitError(resp.text[:200])
-                resp.raise_for_status()
-                data = resp.json()
-        except ApolloRateLimitError:
-            raise
-        except httpx.HTTPStatusError as exc:
-            logger.error("ApolloSource contact HTTP %d: %s", exc.response.status_code, exc.response.text[:200])
-            return []
-        except Exception as exc:
-            logger.error("ApolloSource contact request failed: %s", exc)
+        import asyncio as _asyncio
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            if attempt > 0:
+                wait = 5.0 * (2 ** (attempt - 1))  # 5s, 10s
+                logger.warning("ApolloSource contact retry %d for %s — waiting %.0fs", attempt, domain, wait)
+                await _asyncio.sleep(wait)
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        f"{APOLLO_BASE_URL}/mixed_people/api_search",
+                        headers=headers,
+                        json=body,
+                    )
+                    if resp.status_code == 429:
+                        logger.warning("ApolloSource contact HTTP 429 (attempt %d) for %s", attempt + 1, domain)
+                        raise ApolloRateLimitError(resp.text[:200])
+                    resp.raise_for_status()
+                    data = resp.json()
+                    break  # success
+            except ApolloRateLimitError:
+                raise
+            except httpx.HTTPStatusError as exc:
+                logger.error("ApolloSource contact HTTP %d for %s: %s", exc.response.status_code, domain, exc.response.text[:200])
+                return []
+            except Exception as exc:
+                logger.warning("ApolloSource contact %s (attempt %d) for %s: %s", type(exc).__name__, attempt + 1, domain, exc or repr(exc))
+                last_exc = exc
+        else:
+            logger.error("ApolloSource contact all retries failed for %s: %s", domain, last_exc)
             return []
 
         contacts: list[RawContact] = []
@@ -388,8 +413,24 @@ class ApolloSource(BaseSource):
                 current_title=title,
                 seniority_label=person.get("seniority") or _NF,
                 department=departments[0] if isinstance(departments, list) and departments else person.get("department") or _NF,
-                email=person.get("email") or _NF,
-                phone=person.get("phone") or person.get("phone_number") or _NF,
+                email=(
+                    person.get("email")
+                    or next(iter(person.get("personal_emails") or []), None)
+                    or _NF
+                ),
+                phone=(
+                    person.get("phone")
+                    or person.get("phone_number")
+                    or next(
+                        (
+                            pn.get("sanitized_number") or pn.get("raw_number")
+                            for pn in (person.get("phone_numbers") or [])
+                            if isinstance(pn, dict)
+                        ),
+                        None,
+                    )
+                    or _NF
+                ),
                 linkedin_url=person.get("linkedin_url") or _NF,
                 account_domain=domain,
                 past_roles=[
@@ -406,6 +447,77 @@ class ApolloSource(BaseSource):
 
         logger.info("ApolloSource: returned %d contacts for %s", len(contacts), domain)
         return contacts
+
+    async def enrich_person(self, person_id: str) -> dict:
+        """
+        Reveal a single person's email via the people/match enrichment endpoint.
+
+        The people search endpoint returns only obfuscated stubs; this call
+        reveals the actual work email (and any personal emails). Costs Apollo
+        credits per successful reveal.
+
+        Phone numbers are intentionally NOT requested: Apollo only delivers
+        revealed phone numbers asynchronously to a public webhook_url, which
+        this deployment does not have. Requesting reveal_phone_number without a
+        webhook returns HTTP 400.
+
+        Returns a dict: {"email", "personal_emails", "email_status",
+        "linkedin_url", "title", "photo_url"} — empty values ("not_found"/[])
+        when nothing is available. linkedin_url and profile fields come back on
+        the same call as the email reveal, so they cost no extra credits (the
+        people search endpoint does not return linkedin_url at all). Never raises
+        except ApolloRateLimitError so the caller can back off.
+        """
+        if not self._api_key:
+            return {"email": _NF, "personal_emails": [], "email_status": _NF,
+                    "linkedin_url": _NF, "title": _NF, "photo_url": _NF}
+
+        headers = {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "X-Api-Key": self._api_key,
+        }
+        body = {"id": person_id, "reveal_personal_emails": True}
+
+        import asyncio as _asyncio
+        for attempt in range(3):
+            if attempt > 0:
+                await _asyncio.sleep(5.0 * (2 ** (attempt - 1)))  # 5s, 10s
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        f"{APOLLO_BASE_URL}/people/match",
+                        headers=headers,
+                        json=body,
+                    )
+                    if resp.status_code == 429:
+                        logger.warning("ApolloSource enrich HTTP 429 (attempt %d) for id=%s", attempt + 1, person_id)
+                        raise ApolloRateLimitError(resp.text[:200])
+                    resp.raise_for_status()
+                    person = resp.json().get("person") or {}
+                    break
+            except ApolloRateLimitError:
+                raise
+            except httpx.HTTPStatusError as exc:
+                logger.error("ApolloSource enrich HTTP %d for id=%s: %s", exc.response.status_code, person_id, exc.response.text[:200])
+                return {"email": _NF, "personal_emails": [], "email_status": _NF}
+            except Exception as exc:
+                logger.warning("ApolloSource enrich %s (attempt %d) for id=%s: %s", type(exc).__name__, attempt + 1, person_id, exc)
+        else:
+            logger.error("ApolloSource enrich all retries failed for id=%s", person_id)
+            return {"email": _NF, "personal_emails": [], "email_status": _NF,
+                    "linkedin_url": _NF, "title": _NF, "photo_url": _NF}
+
+        personal_emails = [e for e in (person.get("personal_emails") or []) if e]
+        email = person.get("email") or (personal_emails[0] if personal_emails else None) or _NF
+        return {
+            "email": email,
+            "personal_emails": personal_emails,
+            "email_status": person.get("email_status") or _NF,
+            "linkedin_url": person.get("linkedin_url") or _NF,
+            "title": person.get("title") or _NF,
+            "photo_url": person.get("photo_url") or _NF,
+        }
 
     async def search(self, filters: ICPFilters) -> List[RawCompany]:
         api_key = self._api_key or os.environ.get("APOLLO_API_KEY", "") or _get_api_key()

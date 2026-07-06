@@ -37,7 +37,7 @@ export default function DeclineModal({ isPending, errorMessage, onConfirm, onCan
         style={{
           width: "100%",
           maxWidth: 460,
-          background: "white",
+          background: "var(--surface)",
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           padding: "20px 18px 22px",
@@ -69,7 +69,7 @@ export default function DeclineModal({ isPending, errorMessage, onConfirm, onCan
           />
         </label>
         {errorMessage ? (
-          <div style={{ fontSize: 13, color: "#b91c1c" }}>{errorMessage}</div>
+          <div style={{ fontSize: 13, color: "var(--bad-500)" }}>{errorMessage}</div>
         ) : null}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
           <button
@@ -78,9 +78,9 @@ export default function DeclineModal({ isPending, errorMessage, onConfirm, onCan
             style={{
               minHeight: 44,
               borderRadius: 8,
-              border: "1px solid #cbd5e1",
-              background: "white",
-              color: "#0f172a",
+              border: "1px solid var(--border)",
+              background: "var(--surface-2)",
+              color: "var(--text)",
               fontWeight: 600,
               fontSize: 15,
               cursor: "pointer",
@@ -94,9 +94,9 @@ export default function DeclineModal({ isPending, errorMessage, onConfirm, onCan
             style={{
               minHeight: 44,
               borderRadius: 8,
-              border: "none",
-              background: !valid || isPending ? "#fca5a5" : "#b91c1c",
-              color: "white",
+              background: !valid || isPending ? "rgba(255,70,70,0.10)" : "rgba(255,70,70,0.18)",
+              border: "1px solid rgba(255,70,70,0.35)",
+              color: "var(--bad-500)",
               fontWeight: 700,
               fontSize: 15,
               cursor: !valid || isPending ? "not-allowed" : "pointer",

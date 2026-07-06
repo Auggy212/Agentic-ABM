@@ -1,350 +1,219 @@
-import React from "react";
+import React, { useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { queryClient } from "./lib/queryClient";
-import Icon from "@/components/ui/Icon";
 import { clearSession, getActiveUser, isAuthenticated } from "./lib/session";
-import Copilot from "@/components/Copilot";
 import LandingPage from "./pages/Landing/LandingPage";
 import IntakeForm from "./pages/Intake/IntakeForm";
 import ResumeDraft from "./pages/Intake/resume";
-import AccountsPage from "./pages/Accounts/AccountsPage";
 import AccountDetail from "./pages/Accounts/AccountDetail";
-import AgentsPage from "./pages/Agents/AgentsPage";
-import BuyersIndexPage from "./pages/Buyers/BuyersIndexPage";
-import CampaignDashboardPage from "./pages/Campaign/CampaignDashboardPage";
-import CampaignRunsPage from "./pages/Campaign/CampaignRunsPage";
-import CP2ReviewPage from "./pages/Checkpoint2/CP2ReviewPage";
-import CP3OperatorPage from "./pages/Checkpoint3/CP3OperatorPage";
-import CP4QueuePage from "./pages/Checkpoint4/CP4QueuePage";
 import ClientReviewPage from "./pages/ClientReview/ClientReviewPage";
 import SalesHandoffPage from "./pages/SalesHandoff/SalesHandoffPage";
-import PipelinePage from "./pages/Pipeline/PipelinePage";
-import VerificationDashboard from "./pages/Verification/VerificationDashboard";
-import { SignalsPage } from "./pages/SignalsPage";
-import { StorytellerPage } from "./pages/StorytellerPage";
-import IntegrationsPage from "./pages/Integrations/IntegrationsPage";
-import VisualsPage from "./pages/Visuals/VisualsPage";
-import SequencesPage from "./pages/Sequences/SequencesPage";
-import { useNavCounts } from "@/hooks/useNavCounts";
-import { useAgents } from "@/hooks/useAgents";
-import { usePipelineStage, type PhaseStatus } from "@/hooks/usePipelineStage";
 
-// ── Phase-aware nav structure ────────────────────────────────────────────────
+// New design pages
+import DashboardPage from "./pages/Dashboard/DashboardPage";
+import AccountsPage from "./pages/Accounts/AccountsPage";
+import SignalsPageV2 from "./pages/Signals/SignalsPageV2";
+import BuyersPageV2 from "./pages/Buyers/BuyersPageV2";
+import StorytellerPageV2 from "./pages/Storyteller/StorytellerPageV2";
+import CampaignsPageV2 from "./pages/Campaign/CampaignsPageV2";
+import VerificationPageV2 from "./pages/Verification/VerificationPageV2";
+import CheckpointsPage from "./pages/Checkpoints/CheckpointsPage";
+import AgentsPage from "./pages/Agents/AgentsPage";
 
-type NavIcon = "target" | "users" | "trend" | "check" | "send" | "robot" | "intake" | "list" | "activity" | "mail" | "sparkle" | "image" | "settings" | "logout";
+// ── Nav structure ────────────────────────────────────────────────────────────
 
-interface NavPhase {
+interface NavItem {
+  to: string;
   label: string;
-  items: {
-    to: string;
-    label: string;
-    icon: NavIcon;
-    stageKey: string | null;
-    badge?: "accounts" | "agents";
-  }[];
+  icon: React.ReactNode;
 }
 
-const NAV_PHASES: NavPhase[] = [
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+// SVG icon helpers
+const IconDash = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>;
+const IconIntake = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg>;
+const IconAccounts = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="9" y1="9.5" x2="9" y2="20"/></svg>;
+const IconSignals = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.5 7.5a6.4 6.4 0 0 1 0 9M7.5 16.5a6.4 6.4 0 0 1 0-9"/><path d="M19.8 4.2a10.6 10.6 0 0 1 0 15.6M4.2 19.8a10.6 10.6 0 0 1 0-15.6"/></svg>;
+const IconBuyers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.8M16.5 19a5.5 5.5 0 0 0-3-4.9"/></svg>;
+const IconStory = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>;
+const IconCampaigns = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>;
+const IconVerify = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.5 4.5 5.5v5.5c0 4.6 3.1 8.4 7.5 9.8 4.4-1.4 7.5-5.2 7.5-9.8V5.5z"/><path d="M9 12l2.2 2.2L15 10"/></svg>;
+const IconCheckpoints = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 21V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>;
+const IconSettings = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.4l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2.4-1.4L13.8 2h-3.6l-.4 2.9a7 7 0 0 0-2.4 1.4l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2.4 1.4l.4 2.9h3.6l.4-2.9a7 7 0 0 0 2.4-1.4l2.3 1 2-3.4-2-1.5A7 7 0 0 0 19 12z"/></svg>;
+const IconToggle = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>;
+const IconBell = () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.5 21a2 2 0 0 1-3 0"/></svg>;
+const IconSearch = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa0b4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>;
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    label: "Setup",
+    label: "Workspace",
     items: [
-      { to: "/intake",   label: "Intake",     icon: "intake",  stageKey: "intake" },
-      { to: "/agents",   label: "Run Agents", icon: "robot",   stageKey: "icp_scout", badge: "agents" },
+      { to: "/dashboard", label: "Dashboard", icon: <IconDash /> },
+      { to: "/intake", label: "Intake", icon: <IconIntake /> },
+      { to: "/accounts", label: "Accounts", icon: <IconAccounts /> },
     ],
   },
   {
-    label: "Discovery",
+    label: "Intelligence",
     items: [
-      { to: "/accounts", label: "Accounts",   icon: "target",   stageKey: "icp_scout",   badge: "accounts" },
-      { to: "/buyers",   label: "Buyers",      icon: "users",    stageKey: "buyer_intel" },
-      { to: "/signals",  label: "Signals",     icon: "activity", stageKey: "signal_intel" },
+      { to: "/signals", label: "Signals", icon: <IconSignals /> },
+      { to: "/buyers", label: "Buyer Intel", icon: <IconBuyers /> },
     ],
   },
   {
-    label: "Review",
+    label: "Outreach",
     items: [
-      { to: "/checkpoint-2",  label: "Checkpoint 2", icon: "list",  stageKey: "checkpoint_2" },
-      { to: "/verification",  label: "Verification", icon: "check", stageKey: "verification" },
+      { to: "/storyteller", label: "Storyteller", icon: <IconStory /> },
+      { to: "/campaigns", label: "Campaigns", icon: <IconCampaigns /> },
     ],
   },
   {
-    label: "Activation",
+    label: "Operations",
     items: [
-      { to: "/storyteller",  label: "Storyteller",  icon: "sparkle", stageKey: "storyteller" },
-      { to: "/checkpoint-3", label: "Checkpoint 3", icon: "send",    stageKey: "checkpoint_3" },
-      { to: "/checkpoint-4", label: "Checkpoint 4", icon: "check",   stageKey: "checkpoint_4" },
-      { to: "/campaigns",      label: "Dashboard",      icon: "mail",    stageKey: "campaigns" },
-      { to: "/campaign-runs",  label: "Campaign Runs",  icon: "send",    stageKey: "campaigns" },
-    ],
-  },
-  {
-    label: "More",
-    items: [
-      { to: "/sequences",    label: "Sequences",    icon: "list",     stageKey: null },
-      { to: "/pipeline",     label: "Pipeline",     icon: "trend",    stageKey: null },
-      { to: "/visuals",      label: "Visuals",      icon: "image",    stageKey: null },
-      { to: "/integrations", label: "Integrations", icon: "settings", stageKey: null },
+      { to: "/verification", label: "Verification", icon: <IconVerify /> },
+      { to: "/checkpoints", label: "Checkpoints", icon: <IconCheckpoints /> },
+      { to: "/agents", label: "Agents", icon: <IconSettings /> },
     ],
   },
 ];
 
-// ── Bypass: this user always has all pages unlocked ──────────────────────────
-const UNLOCK_EMAIL = "test2@gmail.com";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function phaseIcon(status: PhaseStatus | undefined, bypass: boolean) {
-  if (status === "done") return <span style={{ color: "#16a05c", fontSize: 10, marginLeft: "auto", flexShrink: 0 }}>✓</span>;
-  if (!bypass && status === "locked") return <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginLeft: "auto", flexShrink: 0 }}>🔒</span>;
-  return null;
-}
-
-function AgentRail() {
-  const { data } = useAgents();
-  if (!data?.events?.length) return null;
-  const railItems = data.events.map((e) => `${e.agent} · ${e.title}: ${e.meta}`);
-  const doubled = [...railItems, ...railItems];
-  return (
-    <div className="agent-rail">
-      <span className="agent-rail-pulse">Live</span>
-      <div className="agent-rail-marquee">
-        <div className="agent-rail-marquee-track">
-          {doubled.map((text, i) => <span key={i}>{text}</span>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Locked page fallback ──────────────────────────────────────────────────────
-
-const LOCK_MESSAGES: Record<string, { reason: string; action: string; to: string }> = {
-  "/buyers":       { reason: "Run ICP Scout first to discover accounts.", action: "Go to Run Agents", to: "/agents" },
-  "/signals":      { reason: "Run ICP Scout first to discover accounts.", action: "Go to Run Agents", to: "/agents" },
-  "/checkpoint-2": { reason: "Run Buyer Intel and Signal Intel first.", action: "Go to Run Agents", to: "/agents" },
-  "/verification": { reason: "Approve Checkpoint 2 first.", action: "Go to Checkpoint 2", to: "/checkpoint-2" },
-  "/storyteller":  { reason: "Approve Checkpoint 2 first.", action: "Go to Checkpoint 2", to: "/checkpoint-2" },
-  "/checkpoint-3": { reason: "Run Storyteller first to generate messages.", action: "Go to Storyteller", to: "/storyteller" },
-  "/checkpoint-4": { reason: "Approve Checkpoint 3 first.", action: "Go to Checkpoint 3", to: "/checkpoint-3" },
-  "/campaigns":      { reason: "Approve Checkpoint 4 first.", action: "Go to Checkpoint 4", to: "/checkpoint-4" },
-  "/campaign-runs":  { reason: "Approve Checkpoint 4 first.", action: "Go to Checkpoint 4", to: "/checkpoint-4" },
-};
-
-function LockedPage({ path }: { path: string }) {
-  const navigate = useNavigate();
-  const msg = LOCK_MESSAGES[path];
-  if (!msg) return null;
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, padding: 40 }}>
-      <div style={{
-        maxWidth: 420, textAlign: "center", padding: "36px 32px",
-        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14,
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>This page is locked</div>
-        <div style={{ color: "var(--text-3)", fontSize: 14, marginBottom: 20 }}>{msg.reason}</div>
-        <button className="btn-primary" onClick={() => navigate(msg.to)} style={{ padding: "8px 20px" }}>
-          {msg.action} →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Next-step banner ──────────────────────────────────────────────────────────
-
-const NEXT_STEPS: Record<string, { message: string; action: string; to: string }> = {
-  "/intake":       { message: "Intake complete.", action: "Go run ICP Scout →", to: "/agents" },
-  "/accounts":     { message: "Accounts discovered.", action: "Run Buyer Intel & Signal Intel →", to: "/agents" },
-  "/buyers":       { message: "Buyer profiles ready.", action: "Review Signal Intel →", to: "/signals" },
-  "/signals":      { message: "Signal reports ready.", action: "Review inferred claims at Checkpoint 2 →", to: "/checkpoint-2" },
-  "/checkpoint-2": { message: "CP2 approved!", action: "Run Verification →", to: "/agents" },
-  "/verification": { message: "Verified!", action: "Generate messaging →", to: "/storyteller" },
-  "/storyteller":  { message: "Messages drafted.", action: "Operator review at Checkpoint 3 →", to: "/checkpoint-3" },
-  "/checkpoint-3": { message: "CP3 approved!", action: "Review at Checkpoint 4 →", to: "/checkpoint-4" },
-  "/checkpoint-4": { message: "CP4 approved!", action: "Launch Campaign →", to: "/campaigns" },
-};
-
-function NextStepBanner({ path, stage }: { path: string; stage: ReturnType<typeof usePipelineStage>["data"] }) {
-  const navigate = useNavigate();
-  if (!stage) return null;
-
-  const stageKeyMap: Record<string, keyof typeof stage> = {
-    "/intake":        "intake",
-    "/accounts":      "icp_scout",
-    "/buyers":        "buyer_intel",
-    "/signals":       "signal_intel",
-    "/checkpoint-2":  "checkpoint_2",
-    "/verification":  "verification",
-    "/storyteller":   "storyteller",
-    "/checkpoint-3":  "checkpoint_3",
-    "/checkpoint-4":  "checkpoint_4",
-  };
-
-  const key = stageKeyMap[path];
-  if (!key || stage[key] !== "done") return null;
-
-  const next = NEXT_STEPS[path];
-  if (!next) return null;
-
-  return (
-    <div style={{
-      background: "var(--acc-950)", borderBottom: "1px solid var(--acc-800)",
-      padding: "10px 24px", display: "flex", alignItems: "center", gap: 12,
-      fontSize: 13,
-    }}>
-      <span style={{ color: "var(--acc-300)" }}>✓ {next.message}</span>
-      <button
-        onClick={() => navigate(next.to)}
-        style={{
-          background: "var(--acc-600)", color: "#fff", border: "none",
-          borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-        }}
-      >
-        {next.action}
-      </button>
-    </div>
-  );
-}
+// ── App Shell ────────────────────────────────────────────────────────────────
 
 function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const isIntake = location.pathname.startsWith("/intake");
-  const { data: navCounts } = useNavCounts();
-  const { data: stage } = usePipelineStage();
   const user = getActiveUser();
-  const isBypassUser = user?.email === UNLOCK_EMAIL;
+  const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
 
-  // Gate: redirect to intake if not yet completed
-  React.useEffect(() => {
-    if (stage && stage.intake !== "done" && !isIntake) {
-      navigate("/intake", { replace: true });
-    }
-  }, [stage, isIntake, navigate]);
+  const sidebarW = collapsed ? 56 : 220;
+  const labelOpacity = collapsed ? 0 : 1;
 
   const handleLogout = () => {
     clearSession();
     navigate("/");
   };
 
-  // Determine if current route is locked (bypass users always unlocked)
-  const lockMsg = LOCK_MESSAGES[location.pathname];
-  const stageKeyMap: Record<string, keyof NonNullable<typeof stage>> = {
-    "/buyers":        "buyer_intel",
-    "/signals":       "signal_intel",
-    "/checkpoint-2":  "checkpoint_2",
-    "/verification":  "verification",
-    "/storyteller":   "storyteller",
-    "/checkpoint-3":  "checkpoint_3",
-    "/checkpoint-4":  "checkpoint_4",
-    "/campaigns":      "campaigns",
-    "/campaign-runs":  "campaigns",
-  };
-  const currentStageKey = stageKeyMap[location.pathname];
-  const isLocked = !isBypassUser && !!lockMsg && !!currentStageKey && stage?.[currentStageKey] === "locked";
+  const isActive = (to: string) =>
+    location.pathname === to ||
+    (to !== "/dashboard" && location.pathname.startsWith(to));
+
+  const navBg = (to: string) => isActive(to) ? "rgba(67,56,202,0.2)" : "transparent";
+  const navColor = (to: string) => isActive(to) ? "#818cf8" : "#7a8194";
+
+  const initials = user?.initials ?? user?.name?.split(" ").map(w => w[0]).join("").toUpperCase() ?? "?";
 
   return (
-    <div className="app-shell">
-      {/* Left nav */}
-      <nav className="nav">
-        <div className="nav-brand">
-          <div className="nav-brand-mark">A</div>
-          <span>ABM Engine</span>
-        </div>
+    <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", background: "#f6f6f4", color: "#1a1d29", fontFamily: "'Inter',system-ui,sans-serif", WebkitFontSmoothing: "antialiased" }}>
 
-        <div className="nav-scrollable">
-          {NAV_PHASES.map((phase) => (
-            <div key={phase.label}>
-              <div className="nav-section">{phase.label}</div>
-              {phase.items.map((n) => {
-                const phaseStatus: PhaseStatus | undefined =
-                  n.stageKey && stage ? stage[n.stageKey as keyof typeof stage] as PhaseStatus : undefined;
-                const locked = !isBypassUser && phaseStatus === "locked";
-                const active =
-                  location.pathname === n.to ||
-                  (n.to === "/accounts" && location.pathname.startsWith("/accounts")) ||
-                  (n.to === "/buyers" && location.pathname.startsWith("/buyers"));
-
-                return (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    className="nav-item"
-                    data-active={String(active)}
-                    style={locked ? { opacity: 0.35, pointerEvents: "none" } : undefined}
-                    tabIndex={locked ? -1 : undefined}
-                  >
-                    <Icon name={n.icon} size={15} />
-                    <span>{n.label}</span>
-                    {/* badges */}
-                    {n.badge === "accounts" && navCounts?.accounts
-                      ? <span className="nav-item-count">{navCounts.accounts}</span>
-                      : null}
-                    {n.badge === "agents" && navCounts?.agents
-                      ? <span className="nav-item-count">{navCounts.agents}</span>
-                      : null}
-                    {phaseIcon(phaseStatus, isBypassUser)}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-
-        <div className="nav-footer">
-          <div className="nav-footer-user">
-            <div className="nav-avatar">{user?.initials ?? "?"}</div>
-            <div className="nav-foot-text">
-              <div>{user?.name ?? "Unknown"}</div>
-              <div>{user?.email ?? ""}</div>
-            </div>
+      {/* SIDEBAR */}
+      <aside style={{ width: sidebarW, flexShrink: 0, background: "#16181f", display: "flex", flexDirection: "column", transition: "width .2s ease", overflow: "hidden" }}>
+        {/* Logo row */}
+        <div style={{ height: 56, flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "0 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 7, background: "#4338ca", display: "grid", placeItems: "center" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
           </div>
-          <button onClick={handleLogout} className="nav-logout-btn" title="Logout">
-            <Icon name="logout" size={13} />
-            Sign out
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#fff", letterSpacing: "-0.01em", whiteSpace: "nowrap", opacity: labelOpacity, transition: "opacity .15s" }}>ABM Engine</span>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            style={{ marginLeft: "auto", width: 26, height: 26, flexShrink: 0, border: "none", background: "transparent", color: "#7a8194", borderRadius: 6, cursor: "pointer", display: "grid", placeItems: "center" }}
+          >
+            <IconToggle />
           </button>
         </div>
-      </nav>
 
-      {/* Main */}
-      <main className="main">
-        {/* Next-step banner — guides user to next action after each phase */}
-        {!isIntake && (
-          <NextStepBanner path={location.pathname} stage={stage} />
-        )}
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: "10px 10px 12px", overflowY: "auto" }}>
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", color: "#565b6d", textTransform: "uppercase", padding: "8px 10px 6px", opacity: labelOpacity, whiteSpace: "nowrap", transition: "opacity .15s" }}>
+                {section.label}
+              </div>
+              {section.items.map((item) => (
+                <button
+                  key={item.to}
+                  onClick={() => navigate(item.to)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 11, width: "100%", border: "none", cursor: "pointer",
+                    padding: "9px 11px", borderRadius: 7, marginBottom: 2, font: "inherit", fontSize: 13.5, fontWeight: 500,
+                    textAlign: "left", overflow: "hidden", justifyContent: collapsed ? "center" : "flex-start",
+                    background: navBg(item.to), color: navColor(item.to), transition: "background .12s",
+                  }}
+                >
+                  <span style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 18, height: 18 }}>{item.icon}</span>
+                  <span style={{ whiteSpace: "nowrap", opacity: labelOpacity, transition: "opacity .15s" }}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
 
-        {isLocked ? (
-          <LockedPage path={location.pathname} />
-        ) : (
-          <Routes>
-          <Route path="/intake" element={<IntakeForm />} />
-          <Route path="/intake/resume" element={<ResumeDraft />} />
-          <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/accounts/:id" element={<AccountDetail />} />
-          <Route path="/buyers" element={<BuyersIndexPage />} />
-          <Route path="/pipeline" element={<PipelinePage />} />
-          <Route path="/verification" element={<VerificationDashboard />} />
-          <Route path="/checkpoint-2" element={<CP2ReviewPage />} />
-          <Route path="/checkpoint-3" element={<CP3OperatorPage />} />
-          <Route path="/checkpoint-4" element={<CP4QueuePage />} />
-          <Route path="/signals" element={<SignalsPage />} />
-          <Route path="/campaigns" element={<CampaignDashboardPage />} />
-          <Route path="/campaign-runs" element={<CampaignRunsPage />} />
-          <Route path="/storyteller" element={<StorytellerPage />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/sequences" element={<SequencesPage />} />
-          <Route path="/visuals" element={<VisualsPage />} />
-        </Routes>
-        )}
+        {/* Settings footer */}
+        <div style={{ flexShrink: 0, padding: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <button
+            style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", border: "none", cursor: "pointer", padding: "9px 11px", borderRadius: 7, font: "inherit", fontSize: 13.5, fontWeight: 500, textAlign: "left", overflow: "hidden", justifyContent: collapsed ? "center" : "flex-start", background: "transparent", color: "#7a8194", transition: "background .12s" }}
+            onClick={handleLogout}
+          >
+            <span style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 18, height: 18 }}><IconSettings /></span>
+            <span style={{ whiteSpace: "nowrap", opacity: labelOpacity, transition: "opacity .15s" }}>Settings</span>
+          </button>
+        </div>
+      </aside>
 
-        {!isIntake && <AgentRail />}
-      </main>
+      {/* MAIN */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
 
-      {!isIntake && <Copilot />}
+        {/* Header */}
+        <header style={{ height: 56, flexShrink: 0, background: "#ffffff", borderBottom: "1px solid #e7e7e3", display: "flex", alignItems: "center", gap: 18, padding: "0 22px", zIndex: 5 }}>
+          <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: "-0.01em", color: "#1a1d29", whiteSpace: "nowrap" }}>ABM Engine</span>
+          <div style={{ position: "relative", flex: 1, maxWidth: 440, marginLeft: 8 }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><IconSearch /></span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search accounts, signals, contacts…"
+              style={{ width: "100%", height: 34, padding: "0 12px 0 34px", border: "1px solid #e3e3df", borderRadius: 7, background: "#f7f7f5", font: "inherit", fontSize: 13, color: "#1a1d29", outline: "none", transition: "border-color .12s, background .12s" }}
+            />
+          </div>
+          <div style={{ flex: 1 }} />
+          <button style={{ width: 34, height: 34, flexShrink: 0, border: "1px solid #e7e7e3", background: "#fff", borderRadius: 7, cursor: "pointer", display: "grid", placeItems: "center", color: "#6b7180", position: "relative" }}>
+            <IconBell />
+            <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#4338ca", border: "1.5px solid #fff" }} />
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, paddingLeft: 4 }}>
+            <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: "50%", background: "#4338ca", display: "grid", placeItems: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>{initials}</div>
+            <div style={{ lineHeight: 1.25 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "#1a1d29" }}>{user?.name ?? "User"}</div>
+              <div style={{ fontSize: 11, color: "#8a8f9e" }}>{user?.email ?? ""}</div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main style={{ flex: 1, overflowY: "auto", padding: "24px 26px 44px" }}>
+          <Routes location={location}>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/intake" element={<IntakeForm />} />
+            <Route path="/intake/resume" element={<ResumeDraft />} />
+            <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/accounts/:id" element={<AccountDetail />} />
+            <Route path="/signals" element={<SignalsPageV2 />} />
+            <Route path="/buyers" element={<BuyersPageV2 />} />
+            <Route path="/storyteller" element={<StorytellerPageV2 />} />
+            <Route path="/campaigns" element={<CampaignsPageV2 />} />
+            <Route path="/verification" element={<VerificationPageV2 />} />
+            <Route path="/checkpoints" element={<CheckpointsPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }

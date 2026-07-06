@@ -28,9 +28,9 @@ function EngineBadge({
       type="button"
       onClick={onClick}
       style={{
-        border: "1px solid #bfdbfe",
-        background: "#eff6ff",
-        color: "#1d4ed8",
+        border: "1px solid rgba(0,212,255,0.25)",
+        background: "rgba(0,212,255,0.08)",
+        color: "var(--acc-300)",
         borderRadius: 999,
         padding: "3px 8px",
         fontSize: 11,
@@ -82,7 +82,7 @@ export default function ContactVerificationCard({
             <EngineBadge label="ZeroBounce" onClick={() => setEngineOpen(true)} />
           )}
           {email.relookup_attempted && (
-            <span style={{ fontSize: 12, color: email.relookup_email ? "#15803d" : "#b45309", fontWeight: 700 }}>
+            <span style={{ fontSize: 12, color: email.relookup_email ? "var(--good-500)" : "var(--warn-500)", fontWeight: 700 }}>
               Re-looked up via Hunter - {email.relookup_email ? "found new email" : "blocked or no match"}
             </span>
           )}
@@ -100,8 +100,8 @@ export default function ContactVerificationCard({
           <Pill
             colors={
               verification.linkedin_check.reachable
-                ? { fg: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" }
-                : { fg: "#b91c1c", bg: "#fef2f2", border: "#fecaca" }
+                ? { fg: "var(--good-500)", bg: "rgba(0,255,150,0.08)",  border: "rgba(0,255,150,0.25)"  }
+                : { fg: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  border: "rgba(255,70,70,0.25)"  }
             }
           >
             {verification.linkedin_check.reachable ? "reachable" : "unreachable"}
@@ -137,7 +137,7 @@ export default function ContactVerificationCard({
               {verification.title_reconciliation.resolution_method}
             </Pill>
             {!verification.title_reconciliation.mismatch_resolved && (
-              <Pill colors={{ fg: "#b45309", bg: "#fffbeb", border: "#fde68a" }}>
+              <Pill colors={{ fg: "var(--warn-500)", bg: "rgba(255,215,0,0.08)", border: "rgba(255,215,0,0.25)" }}>
                 PhantomBuster reconciliation deferred to Phase 5
               </Pill>
             )}
@@ -157,8 +157,8 @@ export default function ContactVerificationCard({
               <Pill
                 colors={
                   jobGood
-                    ? { fg: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" }
-                    : { fg: "#b45309", bg: "#fffbeb", border: "#fde68a" }
+                    ? { fg: "var(--good-500)", bg: "rgba(0,255,150,0.08)", border: "rgba(0,255,150,0.25)" }
+                    : { fg: "var(--warn-500)", bg: "rgba(255,215,0,0.08)", border: "rgba(255,215,0,0.25)" }
                 }
               >
                 {jobConfidence.toFixed(2)} {jobGood ? "LinkedIn confirmed" : "Apollo-only"}

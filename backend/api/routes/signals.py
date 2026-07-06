@@ -177,6 +177,49 @@ async def discover(
     )
 
 
+@router.get("/run-status")
+def get_run_status(
+    client_id: str = Query(...),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Return whether there is an active signal intel run for this client."""
+    record = (
+        db.query(SignalIntelRunRecord)
+        .filter(
+            SignalIntelRunRecord.client_id == client_id,
+            SignalIntelRunRecord.status == "running",
+        )
+        .order_by(SignalIntelRunRecord.started_at.desc())
+        .first()
+    )
+    if record:
+        return {"is_running": True, "job_id": record.id, "started_at": record.started_at.isoformat()}
+    return {"is_running": False}
+
+
+@router.post("/cancel", status_code=status.HTTP_200_OK)
+def cancel_signal_run(
+    client_id: str = Query(...),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Mark the latest running signal intel run as cancelled."""
+    record = (
+        db.query(SignalIntelRunRecord)
+        .filter(
+            SignalIntelRunRecord.client_id == client_id,
+            SignalIntelRunRecord.status == "running",
+        )
+        .order_by(SignalIntelRunRecord.started_at.desc())
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="No running signal intel run found.")
+    record.status = "cancelled"
+    record.finished_at = datetime.now(tz=timezone.utc)
+    db.commit()
+    return {"job_id": record.id, "status": "cancelled"}
+
+
 @router.get("")
 def list_signals(
     client_id: Optional[str] = Query(None),
@@ -200,7 +243,7 @@ def list_signals(
             .first()
         )
         if not record:
-            return {"domain": company, "signals": [], "status": "not_started"}
+            raise HTTPException(status_code=404, detail=f"No signal report found for domain={company!r}")
         return record.data
 
     # client_id path

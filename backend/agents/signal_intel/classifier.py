@@ -34,17 +34,29 @@ from backend.schemas.models import (
 logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-5.4-mini"
-_CACHE_TTL_SECONDS = 86400  # 24 hours
+OPENAI_MODEL = os.environ.get("OPENAI_CLASSIFIER_MODEL", "gpt-4o-mini")
+_CACHE_TTL_SECONDS = int(os.environ.get("CLASSIFIER_CACHE_TTL_SECONDS", "86400"))
+_LLM_TIMEOUT_SECS = float(os.environ.get("CLASSIFIER_LLM_TIMEOUT_SECS", "10.0"))
 
 _SYSTEM_PROMPT = """You are classifying a B2B account's buying stage based on observed signals.
 Choose ONE of: UNAWARE, PROBLEM_AWARE, SOLUTION_AWARE, EVALUATING, READY_TO_BUY.
+
 Definitions:
-- UNAWARE: no observable interest in the problem space
-- PROBLEM_AWARE: acknowledging a pain but not actively shopping
-- SOLUTION_AWARE: aware solutions exist, exploring options
-- EVALUATING: actively comparing vendors, demoing, reading reviews
-- READY_TO_BUY: budget unlocked, decision imminent
+- UNAWARE: no signals, or signals are purely company news unrelated to buying (e.g. routine PR)
+- PROBLEM_AWARE: acknowledging a pain but not actively shopping (e.g. exec posts about the problem)
+- SOLUTION_AWARE: aware solutions exist, exploring options (e.g. reading comparison content, hiring for the space)
+- EVALUATING: actively comparing vendors, demoing, reading reviews on G2/Capterra, requesting pricing
+- READY_TO_BUY: budget unlocked, RFP issued, or decision timeline confirmed
+
+Examples:
+  signals=[{type:RELEVANT_HIRE,intent:HIGH},{type:COMPETITOR_REVIEW,intent:HIGH}]
+  → {"stage":"EVALUATING","reasoning":"Actively hiring for the problem space and comparing competitors on review sites."}
+
+  signals=[{type:FUNDING,intent:HIGH},{type:EXPANSION,intent:MEDIUM}]
+  → {"stage":"SOLUTION_AWARE","reasoning":"New funding and expansion signal buying capacity but no active evaluation yet."}
+
+  signals=[{type:EXEC_CONTENT,intent:LOW}]
+  → {"stage":"PROBLEM_AWARE","reasoning":"Single low-intent exec content mention indicates awareness of the pain, not active search."}
 
 Return strict JSON only: {"stage": "<one>", "reasoning": "<one sentence>"}"""
 
@@ -139,7 +151,7 @@ async def _llm_tiebreaker(signals: list[AccountSignal]) -> tuple[BuyingStage, st
     user_message = f"Signals observed: {signals_json}"
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT_SECS) as client:
             resp = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -149,6 +161,8 @@ async def _llm_tiebreaker(signals: list[AccountSignal]) -> tuple[BuyingStage, st
                 json={
                     "model": OPENAI_MODEL,
                     "max_tokens": 150,
+                    "temperature": 0,
+                    "response_format": {"type": "json_object"},
                     "messages": [
                         {"role": "system", "content": _SYSTEM_PROMPT},
                         {"role": "user", "content": user_message},

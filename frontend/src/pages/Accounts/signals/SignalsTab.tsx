@@ -25,11 +25,11 @@ const STAGE_LABELS: Record<BuyingStage, string> = {
 };
 
 const STAGE_COLORS: Record<BuyingStage, { active: string; dim: string }> = {
-  UNAWARE: { active: "#6b7280", dim: "#f3f4f6" },
-  PROBLEM_AWARE: { active: "#b45309", dim: "#fffbeb" },
-  SOLUTION_AWARE: { active: "#0369a1", dim: "#eff6ff" },
-  EVALUATING: { active: "#7c3aed", dim: "#f5f3ff" },
-  READY_TO_BUY: { active: "#15803d", dim: "#f0fdf4" },
+  UNAWARE:        { active: "var(--text-3)",   dim: "rgba(255,255,255,0.04)"  },
+  PROBLEM_AWARE:  { active: "var(--warn-500)", dim: "rgba(255,215,0,0.08)"   },
+  SOLUTION_AWARE: { active: "var(--acc-300)",  dim: "rgba(0,212,255,0.08)"   },
+  EVALUATING:     { active: "var(--vio-500)",  dim: "rgba(139,92,246,0.08)"  },
+  READY_TO_BUY:   { active: "var(--good-500)", dim: "rgba(0,255,150,0.08)"   },
 };
 
 function BuyingStageIndicator({
@@ -248,9 +248,9 @@ export default function SignalsTab({ domain }: Props) {
                 fontWeight: 600,
                 padding: "2px 6px",
                 borderRadius: 4,
-                background: "#eff6ff",
-                color: "#1d4ed8",
-                border: "1px solid #bfdbfe",
+                background: "rgba(0,212,255,0.08)",
+                color: "var(--acc-300)",
+                border: "1px solid rgba(0,212,255,0.25)",
               }}
             >
               Tier 1

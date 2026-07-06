@@ -7,14 +7,14 @@ import type { CommitteeRole } from "@/pages/Accounts/buyers/types";
 type RoleFilter = "ALL" | CommitteeRole;
 
 const ROLE_OPTIONS: { value: CommitteeRole; label: string; dot: string; bg: string; fg: string }[] = [
-  { value: "DECISION_MAKER", label: "Decision Maker", dot: "#3b82f6", bg: "#eff6ff", fg: "#1d4ed8" },
-  { value: "CHAMPION",       label: "Champion",       dot: "#16a05c", bg: "#e8fbf1", fg: "#0d6e3e" },
-  { value: "BLOCKER",        label: "Blocker",        dot: "#e0493c", bg: "#fef0ef", fg: "#9b2519" },
-  { value: "INFLUENCER",     label: "Influencer",     dot: "#d4940a", bg: "#fef8e7", fg: "#8a5f07" },
+  { value: "DECISION_MAKER", label: "Decision Maker", dot: "var(--acc-300)",  bg: "rgba(0,212,255,0.08)",  fg: "var(--acc-300)"  },
+  { value: "CHAMPION",       label: "Champion",       dot: "var(--good-500)", bg: "rgba(0,255,150,0.08)",  fg: "var(--good-500)" },
+  { value: "BLOCKER",        label: "Blocker",        dot: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  fg: "var(--bad-500)"  },
+  { value: "INFLUENCER",     label: "Influencer",     dot: "var(--warn-500)", bg: "rgba(255,215,0,0.08)",  fg: "var(--warn-500)" },
 ];
 
 function logoColor(name: string): string {
-  const colors = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#3b82f6"];
+  const colors = ["#8b5cf6","#00d4ff","#00ff96","#ffd700","#ff4646","#a78bfa","#f472b6","#2dd4bf","#fb923c","#60a5fa"];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
   return colors[h % colors.length];

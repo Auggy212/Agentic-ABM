@@ -34,7 +34,7 @@ export default function AcceptModal({ defaultName = "", isPending, errorMessage,
         style={{
           width: "100%",
           maxWidth: 460,
-          background: "white",
+          background: "var(--surface)",
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           padding: "20px 18px 22px",
@@ -63,7 +63,7 @@ export default function AcceptModal({ defaultName = "", isPending, errorMessage,
           />
         </label>
         {errorMessage ? (
-          <div style={{ fontSize: 13, color: "#b91c1c" }}>{errorMessage}</div>
+          <div style={{ fontSize: 13, color: "var(--bad-500)" }}>{errorMessage}</div>
         ) : null}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
           <button
@@ -73,7 +73,7 @@ export default function AcceptModal({ defaultName = "", isPending, errorMessage,
               minHeight: 44,
               borderRadius: 8,
               border: "1px solid #cbd5e1",
-              background: "white",
+              background: "var(--surface)",
               color: "#0f172a",
               fontWeight: 600,
               fontSize: 15,

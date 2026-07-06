@@ -121,13 +121,19 @@ def test_seed_templates_is_idempotent(db_session) -> None:
     first_count = db_session.query(PromptTemplateRecord).count()
     seed_phase4_templates(db_session)
     second_count = db_session.query(PromptTemplateRecord).count()
-    assert first_count == second_count == 21
+    assert first_count == second_count == 22
 
 
 def test_history_returns_newest_first(db_session) -> None:
     registry = TemplateRegistry(db_session)
-    old = registry.register(_template("email_all_any_v1", version="1.0.0"))
-    new = registry.register(_template("email_all_any_v2", version="1.1.0"))
+    old = registry.register(PromptTemplate(
+        **{**_template("email_all_any_v1", version="1.0.0").model_dump(),
+           "created_at": datetime(2024, 1, 1, tzinfo=timezone.utc)}
+    ))
+    new = registry.register(PromptTemplate(
+        **{**_template("email_all_any_v2", version="1.1.0").model_dump(),
+           "created_at": datetime(2024, 6, 1, tzinfo=timezone.utc)}
+    ))
 
     history = registry.history(MessageChannel.EMAIL, TierTarget.ALL, 0)
 

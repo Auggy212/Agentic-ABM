@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AgentsResponse } from "@/types/agents";
 
@@ -9,6 +9,10 @@ export function useAgents() {
       const { data } = await api.get<AgentsResponse>("/api/agents");
       return data;
     },
-    refetchInterval: 10_000, // poll every 10s to pick up live status changes
+    refetchInterval: 10_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    placeholderData: keepPreviousData, // keep showing old data while refetch/retry is in flight
+    staleTime: 8_000,
   });
 }

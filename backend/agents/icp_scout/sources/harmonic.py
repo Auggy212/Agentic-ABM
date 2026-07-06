@@ -26,6 +26,7 @@ HARMONIC_API_KEY: str = os.environ.get("HARMONIC_API_KEY", "")
 HARMONIC_BASE_URL = "https://api.harmonic.ai"
 _NF = "not_found"
 _PAGE_SIZE = 25
+_MAX_PAGES = 4   # up to 100 results per run
 
 
 def _safe(d: dict, *keys: str, default: Any = _NF) -> Any:
@@ -73,7 +74,7 @@ def _parse_signals(entity: dict) -> List[RawSignal]:
     hc = entity.get("headcount") or {}
     if isinstance(hc, dict):
         growth = hc.get("six_month_growth_percent")
-        if isinstance(growth, (int, float)) and growth > 10:
+        if isinstance(growth, (int, float)) and growth >= 5:
             signals.append(RawSignal(**{
                 "type": "HEADCOUNT_GROWTH",
                 "description": f"Headcount grew {growth:.1f}% in last 6 months",
@@ -137,14 +138,10 @@ class HarmonicSource(BaseSource):
             return []
 
         results: List[RawCompany] = []
+        seen_domains: set[str] = set()
         headers = {
             "apikey": self._api_key,
             "Content-Type": "application/json",
-        }
-
-        body: dict = {
-            "filter": {},
-            "size": _PAGE_SIZE,
         }
 
         f: dict = {}
@@ -157,31 +154,44 @@ class HarmonicSource(BaseSource):
             f["location"] = {"countries": filters.locations}
         if filters.funding_stages:
             f["funding_stage"] = {"values": filters.funding_stages}
-        # Harmonic speciality: filter for companies with recent funding (last 18 months)
-        f["has_funding"] = True
-        body["filter"] = f
+        # Only restrict to funded companies when the ICP explicitly requires funding stages;
+        # otherwise include all companies matching the other filters.
+        if filters.funding_stages:
+            f["has_funding"] = True
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                resp = await client.post(
-                    f"{HARMONIC_BASE_URL}/companies/search",
-                    headers=headers,
-                    json=body,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            except httpx.HTTPStatusError as exc:
-                logger.error("HarmonicSource HTTP %d: %s", exc.response.status_code, exc.response.text[:200])
-                return []
-            except Exception as exc:
-                logger.error("HarmonicSource request failed: %s", exc)
-                return []
+            after_cursor: Optional[str] = None
+            for page in range(_MAX_PAGES):
+                body: dict = {"filter": f, "size": _PAGE_SIZE}
+                if after_cursor:
+                    body["after"] = after_cursor
 
-            entities = data.get("companies") or data.get("results") or []
-            for entity in entities:
-                company = _normalise(entity)
-                if company:
-                    results.append(company)
+                try:
+                    resp = await client.post(
+                        f"{HARMONIC_BASE_URL}/companies/search",
+                        headers=headers,
+                        json=body,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                except httpx.HTTPStatusError as exc:
+                    logger.error("HarmonicSource HTTP %d: %s", exc.response.status_code, exc.response.text[:200])
+                    break
+                except Exception as exc:
+                    logger.error("HarmonicSource request failed: %s", exc)
+                    break
+
+                entities = data.get("companies") or data.get("results") or []
+                for entity in entities:
+                    company = _normalise(entity)
+                    if company and company.domain not in seen_domains:
+                        seen_domains.add(company.domain)
+                        results.append(company)
+
+                # Pagination: Harmonic may return a cursor or next page token
+                after_cursor = data.get("next_cursor") or data.get("after")
+                if not after_cursor or len(entities) < _PAGE_SIZE:
+                    break
 
         logger.info("HarmonicSource: returned %d companies", len(results))
         return results

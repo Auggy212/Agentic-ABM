@@ -50,14 +50,18 @@ async def verify_email(email: str) -> EmailStatus:
     this function is called.
     """
     if not HUNTER_API_KEY:
-        logger.warning("HunterSource: HUNTER_API_KEY not set — returning UNVERIFIED")
+        logger.warning(
+            "HunterSource: HUNTER_API_KEY not set — email=%s cannot be verified (configuration error, not a real UNVERIFIED result)",
+            email,
+        )
         return EmailStatus.UNVERIFIED
 
     if not email or email == "not_found":
         return EmailStatus.NOT_FOUND
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        timeout = float(os.environ.get("HUNTER_TIMEOUT_SECS", "15.0"))
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.get(
                 f"{HUNTER_BASE_URL}/email-verifier",
                 params={"email": email, "api_key": HUNTER_API_KEY},

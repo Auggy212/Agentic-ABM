@@ -56,11 +56,11 @@ const STATUS_ORDER = ["NOT_STARTED", "OPERATOR_REVIEW", "CLIENT_REVIEW", "CHANGE
 
 const STATUS_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
   NOT_STARTED:       { color: "var(--text-3)",   bg: "var(--surface-3)", border: "var(--border)",     label: "Not Started" },
-  OPERATOR_REVIEW:   { color: "#92400e",          bg: "#fef3c7",          border: "#fde68a",           label: "Operator Review" },
-  CLIENT_REVIEW:     { color: "#1d4ed8",          bg: "#eff6ff",          border: "#bfdbfe",           label: "Client Review" },
-  CHANGES_REQUESTED: { color: "#b91c1c",          bg: "#fef2f2",          border: "#fecaca",           label: "Changes Requested" },
-  APPROVED:          { color: "var(--good-700)",  bg: "var(--good-50)",   border: "var(--good-100)",   label: "Approved ✓" },
-  REJECTED:          { color: "var(--bad-700)",   bg: "var(--bad-50)",    border: "var(--bad-100)",    label: "Rejected" },
+  OPERATOR_REVIEW:   { color: "var(--warn-500)", bg: "rgba(255,215,0,0.08)",  border: "rgba(255,215,0,0.25)",  label: "Operator Review" },
+  CLIENT_REVIEW:     { color: "var(--acc-300)",  bg: "rgba(0,212,255,0.08)", border: "rgba(0,212,255,0.25)", label: "Client Review" },
+  CHANGES_REQUESTED: { color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)", border: "rgba(255,70,70,0.25)", label: "Changes Requested" },
+  APPROVED:          { color: "var(--good-500)", bg: "rgba(0,255,150,0.08)", border: "rgba(0,255,150,0.25)", label: "Approved ✓" },
+  REJECTED:          { color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)", border: "rgba(255,70,70,0.25)", label: "Rejected" },
 };
 
 // ── How it works panel ────────────────────────────────────────────────────────
@@ -282,7 +282,7 @@ function StatusCard({
           <div style={{ height: 7, background: "var(--surface-3)", borderRadius: 999, overflow: "hidden" }}>
             <div style={{
               height: "100%", borderRadius: 999, width: `${buyersPct}%`,
-              background: buyersPct === 100 ? "var(--good-500)" : "#0ea5e9",
+              background: buyersPct === 100 ? "var(--good-500)" : "var(--acc-300)",
               transition: "width 0.4s ease",
             }} />
           </div>
@@ -368,7 +368,7 @@ function TabHint({ view }: { view: "message" | "buyer" }) {
     </div>
   );
   return (
-    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 16px", fontSize: 12, color: "#14532d", lineHeight: 1.5 }}>
+    <div style={{ background: "rgba(0,255,150,0.07)", border: "1px solid rgba(0,255,150,0.22)", borderRadius: 10, padding: "10px 16px", fontSize: 12, color: "var(--good-500)", lineHeight: 1.5 }}>
       <strong>Step 2 of 4.</strong> Approve each buyer once all their messages are reviewed.
       This confirms the whole message set for that person is ready.
       When all buyers are approved, click <strong>Mark Operator Review Complete</strong> at the bottom,
@@ -513,12 +513,12 @@ export default function CP3OperatorPage() {
         {/* ── Contact filter banner ── */}
         {filters.contactId && (
           <div style={{
-            background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10,
+            background: "rgba(0,212,255,0.07)", border: "1px solid rgba(0,212,255,0.20)", borderRadius: 10,
             padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
           }}>
             <div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>Filtered to one buyer — </span>
-              <span style={{ fontSize: 12, color: "#1d4ed8", fontFamily: "var(--font-mono)" }}>{filters.contactId}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--acc-300)" }}>Filtered to one buyer — </span>
+              <span style={{ fontSize: 12, color: "var(--acc-300)", fontFamily: "var(--font-mono)" }}>{filters.contactId}</span>
             </div>
             <Btn size="sm" variant="ghost" onClick={() => setFilters({ ...filters, contactId: null })}>Clear filter</Btn>
           </div>

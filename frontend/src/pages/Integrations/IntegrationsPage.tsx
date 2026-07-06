@@ -102,7 +102,7 @@ function IntegrationCard({ item }: { item: Integration }) {
           padding: "6px 16px", borderRadius: 8, border: "none",
           background: "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
           color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
-          boxShadow: "0 2px 8px rgba(91,80,245,0.25)",
+          boxShadow: "0 0 12px rgba(0,212,255,0.30), 0 2px 8px rgba(0,0,0,0.4)",
         }}>
           Connect
         </button>

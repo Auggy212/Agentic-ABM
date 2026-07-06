@@ -37,9 +37,36 @@ _QUERY_TERMS = (
     '"appoints" OR "hires" OR "leadership" OR "launches" OR "partnership" OR "growth")'
 )
 
-# Fallback type/intent when enricher has no LLM available
-_FALLBACK_TYPE = SignalType.EXPANSION
+# Fallback intent when the enricher assigns no type/intent (LLM unavailable or ambiguous)
 _FALLBACK_INTENT = IntentLevel.MEDIUM
+
+# Keyword → (type, intent) inference used ONLY when the enricher returns no
+# signal_type. Without this, every un-typed article collapsed to EXPANSION,
+# which is why the news feed looked like nothing but expansion signals.
+_TYPE_KEYWORDS: list[tuple[tuple[str, ...], SignalType, IntentLevel]] = [
+    (("raises", "raised", "funding", "series a", "series b", "series c", "seed round",
+      "seed funding", "venture", "investment round", "secures $", "closes $"),
+     SignalType.FUNDING, IntentLevel.HIGH),
+    (("appoints", "names new", "joins as", "hires new", "new ceo", "new cfo", "new cto",
+      "new coo", "new ciso", "chief ", "as ceo", "as cfo", "as cto", "vp of", "head of",
+      "president", "board member"),
+     SignalType.LEADERSHIP_HIRE, IntentLevel.MEDIUM),
+    (("hiring", "is hiring", "job opening", "expands team", "recruiting", "adds talent"),
+     SignalType.RELEVANT_HIRE, IntentLevel.MEDIUM),
+    (("acquires", "acquisition", "merger", "merges", "expansion", "expands into",
+      "launches", "partnership", "partners with", "opens new", "growth", "new market",
+      "enters "),
+     SignalType.EXPANSION, IntentLevel.MEDIUM),
+]
+
+
+def _infer_type_from_text(text: str) -> tuple[SignalType, IntentLevel]:
+    """Best-effort type/intent from headline keywords when the enricher gives none."""
+    low = text.lower()
+    for keywords, sig_type, intent in _TYPE_KEYWORDS:
+        if any(kw in low for kw in keywords):
+            return sig_type, intent
+    return SignalType.OTHER_NEWS, _FALLBACK_INTENT
 
 
 class GoogleNewsSource(BaseSignalSource):
@@ -52,7 +79,7 @@ class GoogleNewsSource(BaseSignalSource):
         try:
             return await self._fetch(domain, company_name, master_context)
         except Exception as exc:
-            logger.warning("GoogleNewsSource: failed for domain=%s: %s", domain, exc)
+            logger.warning("GoogleNewsSource: failed for domain=%s: %s: %s", domain, type(exc).__name__, exc)
             return []
 
     async def _fetch(
@@ -62,7 +89,7 @@ class GoogleNewsSource(BaseSignalSource):
         params = {"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"}
         url = f"{_GOOGLE_RSS}?{urllib.parse.urlencode(params)}"
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             if resp.status_code != 200:
                 return []
@@ -118,8 +145,15 @@ class GoogleNewsSource(BaseSignalSource):
             if result is None or not result.is_relevant:
                 continue
 
-            sig_type = result.signal_type or _FALLBACK_TYPE
-            intent_level = result.intent_level or _FALLBACK_INTENT
+            if result.signal_type is not None:
+                sig_type = result.signal_type
+                intent_level = result.intent_level or _FALLBACK_INTENT
+            else:
+                # Enricher couldn't type it — infer from the headline instead of
+                # blanket-labelling EXPANSION.
+                sig_type, intent_level = _infer_type_from_text(
+                    f"{article['title']} {article['description']}"
+                )
             description = article["title"][:200]
             snippet = (article["description"] or article["title"])[:500]
 

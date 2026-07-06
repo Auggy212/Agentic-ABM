@@ -15,9 +15,9 @@ export default function ClaimTag({ status, sourceUrl }: ClaimTagProps) {
             fontWeight: 700,
             padding: "2px 6px",
             borderRadius: 4,
-            background: "#f0fdf4",
-            color: "#15803d",
-            border: "1px solid #bbf7d0",
+            background: "rgba(0,255,150,0.10)",
+            color: "var(--good-500)",
+            border: "1px solid rgba(0,255,150,0.28)",
             flexShrink: 0,
           }}
         >
@@ -30,7 +30,7 @@ export default function ClaimTag({ status, sourceUrl }: ClaimTagProps) {
             rel="noreferrer"
             style={{
               fontSize: 10,
-              color: "#15803d",
+              color: "var(--good-500)",
               textDecoration: "underline",
               flexShrink: 0,
             }}
@@ -58,9 +58,9 @@ export default function ClaimTag({ status, sourceUrl }: ClaimTagProps) {
           fontWeight: 700,
           padding: "2px 6px",
           borderRadius: 4,
-          background: "#fffbeb",
-          color: "#b45309",
-          border: "1px solid #fde68a",
+          background: "rgba(255,215,0,0.10)",
+          color: "var(--warn-500)",
+          border: "1px solid rgba(255,215,0,0.28)",
           flexShrink: 0,
         }}
       >
@@ -69,7 +69,7 @@ export default function ClaimTag({ status, sourceUrl }: ClaimTagProps) {
       <span
         style={{
           fontSize: 11,
-          color: "#b45309",
+          color: "var(--warn-500)",
           cursor: "help",
           flexShrink: 0,
         }}
@@ -77,6 +77,21 @@ export default function ClaimTag({ status, sourceUrl }: ClaimTagProps) {
       >
         ⓘ
       </span>
+      {sourceUrl && sourceUrl !== "not_found" && (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            fontSize: 10,
+            color: "var(--warn-500)",
+            textDecoration: "underline",
+            flexShrink: 0,
+          }}
+        >
+          source ↗
+        </a>
+      )}
     </span>
   );
 }

@@ -329,11 +329,11 @@ function DashboardPreview() {
                 {["Company","Score","Tier","Signal"].map((h) => <div key={h} className="lp3-prev-th">{h}</div>)}
               </div>
               {[
-                { name: "Linear",   score: 92, tier: "T1", signal: "Series B",     color: "#6366f1" },
-                { name: "Mercury",  score: 88, tier: "T1", signal: "Hiring spike",  color: "#0ea5e9" },
-                { name: "Vercel",   score: 81, tier: "T1", signal: "Tech match",    color: "#111" },
-                { name: "Rippling", score: 74, tier: "T2", signal: "Expansion",     color: "#10b981" },
-                { name: "Notion",   score: 55, tier: "T3", signal: "Funding",       color: "#f59e0b" },
+                { name: "Linear",   score: 92, tier: "T1", signal: "Series B",     color: "#8b5cf6" },
+                { name: "Mercury",  score: 88, tier: "T1", signal: "Hiring spike",  color: "#00d4ff" },
+                { name: "Vercel",   score: 81, tier: "T1", signal: "Tech match",    color: "#a78bfa" },
+                { name: "Rippling", score: 74, tier: "T2", signal: "Expansion",     color: "#00ff96" },
+                { name: "Notion",   score: 55, tier: "T3", signal: "Funding",       color: "#ffd700" },
               ].map((row) => (
                 <div key={row.name} className="lp3-prev-row">
                   <div className="lp3-prev-cell lp3-prev-co">

@@ -11,10 +11,9 @@ from typing import Any
 import openai
 
 
-MODEL = "gpt-5.4-mini"
-# Input: $0.50/1M tokens  Output: $1.50/1M tokens  (approximate — update when pricing is published)
-COST_PER_INPUT_TOKEN = 0.50 / 1_000_000
-COST_PER_OUTPUT_TOKEN = 1.50 / 1_000_000
+MODEL = os.environ.get("OPENAI_STORYTELLER_MODEL", "gpt-4o-mini")
+COST_PER_INPUT_TOKEN = float(os.environ.get("OPENAI_COST_PER_INPUT_TOKEN", str(0.50 / 1_000_000)))
+COST_PER_OUTPUT_TOKEN = float(os.environ.get("OPENAI_COST_PER_OUTPUT_TOKEN", str(1.50 / 1_000_000)))
 
 
 class OpenAIClient:
@@ -34,7 +33,7 @@ class OpenAIClient:
         attempt: int,
     ) -> dict[str, Any]:
         response = self._client.chat.completions.create(
-            model=MODEL,
+            model=self.model_version,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
@@ -45,6 +44,12 @@ class OpenAIClient:
         )
         choice = response.choices[0]
         content_str = choice.message.content or "{}"
+
+        if choice.finish_reason == "length":
+            raise RuntimeError(
+                f"OpenAI response truncated (finish_reason=length) for template={template_id}. "
+                f"Increase max_tokens (currently {max_tokens})."
+            )
 
         usage = response.usage
         input_tokens  = usage.prompt_tokens     if usage else 0

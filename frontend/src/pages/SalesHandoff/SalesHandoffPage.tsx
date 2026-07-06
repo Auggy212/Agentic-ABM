@@ -16,10 +16,10 @@ const TRIGGER_LABEL: Record<HandoffTriggerEventType, string> = {
 };
 
 const URGENCY_COLOR = {
-  fresh: { bg: "#dcfce7", fg: "#166534", border: "#bbf7d0" },
-  warn: { bg: "#fef3c7", fg: "#92400e", border: "#fde68a" },
-  critical: { bg: "#fee2e2", fg: "#991b1b", border: "#fecaca" },
-  overdue: { bg: "#fee2e2", fg: "#991b1b", border: "#fecaca" },
+  fresh:    { bg: "rgba(0,255,150,0.08)",  fg: "var(--good-500)", border: "rgba(0,255,150,0.25)" },
+  warn:     { bg: "rgba(255,215,0,0.08)",  fg: "var(--warn-500)", border: "rgba(255,215,0,0.25)" },
+  critical: { bg: "rgba(255,70,70,0.08)",  fg: "var(--bad-500)",  border: "rgba(255,70,70,0.25)" },
+  overdue:  { bg: "rgba(255,70,70,0.10)",  fg: "var(--bad-500)",  border: "rgba(255,70,70,0.30)" },
 } as const;
 
 function formatRemaining(hoursRemaining: number, urgency: ReturnType<typeof useSlaCountdown>["urgency"]): string {
@@ -99,10 +99,10 @@ export default function SalesHandoffPage() {
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: "#64748b", textTransform: "uppercase" }}>
           New lead for you
         </div>
-        <h1 style={{ margin: "6px 0 4px", fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
+        <h1 style={{ margin: "6px 0 4px", fontSize: 24, fontWeight: 800, color: "var(--text)", lineHeight: 1.2 }}>
           {data.contact_display_name}
         </h1>
-        <div style={{ fontSize: 15, color: "#334155" }}>
+        <div style={{ fontSize: 15, color: "var(--text-2)" }}>
           {data.contact_title ? `${data.contact_title} · ` : ""}
           {data.account_display_name}
         </div>
@@ -130,18 +130,18 @@ export default function SalesHandoffPage() {
           aria-labelledby="why-heading"
           style={{
             marginTop: 22,
-            background: "white",
+            background: "var(--surface)",
             borderRadius: 12,
             padding: "16px 16px 18px",
             boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          <h2 id="why-heading" style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+          <h2 id="why-heading" style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
             Why now
           </h2>
           <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
             {triggerLines.map((line) => (
-              <li key={line.key} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#334155" }}>
+              <li key={line.key} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--text-2)" }}>
                 <span>{line.label}</span>
                 <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>{line.when}</span>
               </li>
@@ -153,13 +153,13 @@ export default function SalesHandoffPage() {
           aria-labelledby="summary-heading"
           style={{
             marginTop: 14,
-            background: "white",
+            background: "var(--surface)",
             borderRadius: 12,
             padding: "16px 16px 18px",
             boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          <h2 id="summary-heading" style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+          <h2 id="summary-heading" style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
             Summary
           </h2>
           <p
@@ -168,7 +168,7 @@ export default function SalesHandoffPage() {
               whiteSpace: "pre-wrap",
               fontSize: 15,
               lineHeight: 1.55,
-              color: "#0f172a",
+              color: "var(--text)",
             }}
           >
             {/* Strip the [CP4 Handoff] header line — internal terminology (master prompt §1). */}
@@ -180,7 +180,7 @@ export default function SalesHandoffPage() {
           <section
             style={{
               marginTop: 14,
-              background: "white",
+              background: "var(--surface)",
               borderRadius: 12,
               padding: "16px",
               boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
@@ -188,17 +188,17 @@ export default function SalesHandoffPage() {
               gap: 10,
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Meeting link</div>
-            <div style={{ fontSize: 14, color: "#334155", wordBreak: "break-all" }}>{data.meeting_link}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Meeting link</div>
+            <div style={{ fontSize: 14, color: "var(--text-2)", wordBreak: "break-all" }}>{data.meeting_link}</div>
             <button
               onClick={copyMeetingLink}
               aria-label="Copy meeting link"
               style={{
                 minHeight: 44,
                 borderRadius: 8,
-                border: "1px solid #cbd5e1",
-                background: "white",
-                color: "#0f172a",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
                 fontWeight: 600,
                 fontSize: 14,
                 cursor: "pointer",
@@ -215,8 +215,8 @@ export default function SalesHandoffPage() {
         style={{
           position: "sticky",
           bottom: 0,
-          background: "white",
-          borderTop: "1px solid #e2e8f0",
+          background: "var(--surface)",
+          borderTop: "1px solid var(--border)",
           padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
           display: "grid",
           gridTemplateColumns: "1fr 2fr",
@@ -230,9 +230,9 @@ export default function SalesHandoffPage() {
           style={{
             minHeight: 48,
             borderRadius: 10,
-            border: "1px solid #cbd5e1",
-            background: "white",
-            color: "#0f172a",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
             fontWeight: 600,
             fontSize: 15,
             cursor: "pointer",

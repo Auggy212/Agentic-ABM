@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 BUILTWITH_API_KEY: str = os.environ.get("BUILTWITH_API_KEY", "")
 BUILTWITH_BASE_URL = "https://api.builtwith.com"
 _NF = "not_found"
-_MAX_LOOKUPS = 10   # limit number of technology lookups per run to conserve quota
+# Read from env so operators can raise/lower the limit based on their BuiltWith plan.
+# Default 10 conserves free-tier quota; paid plans can set this higher (e.g. 50).
+_MAX_LOOKUPS: int = int(os.environ.get("BUILTWITH_MAX_LOOKUPS", "10"))
 
 
 def _normalise(result: dict, tech_name: str) -> Optional[RawCompany]:

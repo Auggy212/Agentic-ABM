@@ -9,7 +9,9 @@ G2 has no public API so we scrape their public search pages.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 import re
 import urllib.parse
 import uuid
@@ -30,14 +32,27 @@ from backend.schemas.models import (
 logger = logging.getLogger(__name__)
 
 _G2_SEARCH = "https://www.g2.com/search"
-_HEADERS = {
-    "User-Agent": (
+
+_USER_AGENTS = [
+    (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
+        "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml",
-}
+    (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/123.0.0.0 Safari/537.36"
+    ),
+    (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+]
+
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = 2.0  # seconds, doubled each retry
 
 # Pull out short text fragments near company-name mentions for the LLM
 _CONTEXT_WINDOW = 200  # chars around each mention
@@ -75,7 +90,7 @@ class G2Source(BaseSignalSource):
         try:
             return await self._fetch(domain, company_name, competitors, master_context)
         except Exception as exc:
-            logger.warning("G2Source: failed for domain=%s: %s", domain, exc)
+            logger.warning("G2Source: failed for domain=%s: %s: %s", domain, type(exc).__name__, exc)
             return []
 
     async def _fetch(
@@ -87,29 +102,48 @@ class G2Source(BaseSignalSource):
     ) -> list[AccountSignal]:
         raw_candidates: list[dict] = []
 
-        async with httpx.AsyncClient(timeout=20.0, headers=_HEADERS, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             for competitor in competitors[:3]:
-                try:
-                    resp = await client.get(
-                        _G2_SEARCH,
-                        params={"query": f"{competitor} {company_name}"},
-                    )
-                    if resp.status_code != 200:
-                        continue
+                snippets: list[str] = []
+                for attempt in range(_MAX_RETRIES):
+                    try:
+                        headers = {
+                            "User-Agent": random.choice(_USER_AGENTS),
+                            "Accept": "text/html,application/xhtml+xml",
+                            "Accept-Language": "en-US,en;q=0.9",
+                        }
+                        resp = await client.get(
+                            _G2_SEARCH,
+                            params={"query": f"{competitor} {company_name}"},
+                            headers=headers,
+                        )
+                        if resp.status_code == 429 or resp.status_code == 503:
+                            wait = _RETRY_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                            logger.debug("G2Source: rate-limited for competitor=%s, retrying in %.1fs", competitor, wait)
+                            await asyncio.sleep(wait)
+                            continue
+                        if resp.status_code != 200:
+                            logger.debug("G2Source: HTTP %s for competitor=%s", resp.status_code, competitor)
+                            break
+                        snippets = _extract_mention_snippets(resp.text, company_name, competitor)
+                        break
+                    except httpx.TimeoutException:
+                        wait = _RETRY_BACKOFF * (2 ** attempt)
+                        logger.debug("G2Source: timeout for competitor=%s, retrying in %.1fs", competitor, wait)
+                        await asyncio.sleep(wait)
+                    except Exception as exc:
+                        logger.debug("G2Source: error for competitor=%s: %s", competitor, exc)
+                        break
 
-                    snippets = _extract_mention_snippets(resp.text, company_name, competitor)
-                    if not snippets:
-                        continue
+                if not snippets:
+                    continue
 
-                    raw_candidates.append({
-                        "id": str(uuid.uuid4()),
-                        "competitor": competitor,
-                        "snippets": snippets,
-                        "search_url": f"https://www.g2.com/search?query={urllib.parse.quote(competitor)}",
-                    })
-
-                except Exception as exc:
-                    logger.warning("G2Source: error for competitor=%s: %s", competitor, exc)
+                raw_candidates.append({
+                    "id": str(uuid.uuid4()),
+                    "competitor": competitor,
+                    "snippets": snippets,
+                    "search_url": f"https://www.g2.com/search?query={urllib.parse.quote(competitor)}",
+                })
 
         if not raw_candidates:
             return []

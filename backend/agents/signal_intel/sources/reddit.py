@@ -36,6 +36,9 @@ REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
 REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 REDDIT_SEARCH_URL = "https://oauth.reddit.com/search"
 REDDIT_USER_AGENT = "ABMEngineBot/0.1 (by u/abm_engine_bot)"
+_REQUEST_SLEEP_SECS = float(os.environ.get("REDDIT_REQUEST_SLEEP_SECS", "1.0"))
+_RATE_LIMIT_SLEEP_SECS = float(os.environ.get("REDDIT_RATE_LIMIT_SLEEP_SECS", "60.0"))
+_MAX_SIGNALS_PER_COMPANY = int(os.environ.get("REDDIT_MAX_SIGNALS", "5"))
 
 _INDUSTRY_SUBREDDITS: dict[str, list[str]] = {
     "saas": ["r/saas", "r/startups", "r/sales"],
@@ -68,12 +71,12 @@ class RedditSource(BaseSignalSource):
         master_context: MasterContext,
     ) -> list[AccountSignal]:
         if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
-            logger.warning("RedditSource: REDDIT_CLIENT_ID/SECRET not set")
+            logger.debug("RedditSource: REDDIT_CLIENT_ID/SECRET not set — skipping")
             return []
         try:
             return await self._fetch(domain, company_name, master_context)
         except Exception as exc:
-            logger.warning("RedditSource: failed for domain=%s: %s", domain, exc)
+            logger.warning("RedditSource: failed for domain=%s: %s: %s", domain, type(exc).__name__, exc)
             return []
 
     async def _get_token(self, client: httpx.AsyncClient) -> str:
@@ -95,14 +98,19 @@ class RedditSource(BaseSignalSource):
 
         raw_posts: list[dict] = []
 
-        async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
-            token = await self._get_token(client)
+        async with httpx.AsyncClient(timeout=8.0, headers=headers) as client:
+            if not self._token:
+                self._token = await self._get_token(client)
+            token = self._token
             auth_headers = {**headers, "Authorization": f"Bearer {token}"}
 
             queries = [company_name] + [f"{company_name} {pp[:30]}" for pp in pain_points[:2]]
 
+            rate_limited = False
             for query in queries:
-                await asyncio.sleep(1.0)  # stay well under 60 req/min
+                if rate_limited:
+                    break
+                await asyncio.sleep(_REQUEST_SLEEP_SECS)
                 try:
                     resp = await client.get(
                         REDDIT_SEARCH_URL,
@@ -110,8 +118,8 @@ class RedditSource(BaseSignalSource):
                         headers=auth_headers,
                     )
                     if resp.status_code == 429:
-                        logger.warning("RedditSource: rate limited — sleeping 60s")
-                        await asyncio.sleep(60)
+                        logger.warning("RedditSource: rate limited — will retry after %.0fs", _RATE_LIMIT_SLEEP_SECS)
+                        rate_limited = True
                         continue
                     if resp.status_code != 200:
                         continue
@@ -179,4 +187,7 @@ class RedditSource(BaseSignalSource):
                 evidence_snippet=f"Post: '{post['title'][:300]}' (score: {post['score']})"[:500],
             ))
 
-        return signals[:5]  # cap at 5 Reddit signals per company
+        if rate_limited:
+            await asyncio.sleep(_RATE_LIMIT_SLEEP_SECS)
+
+        return signals[:_MAX_SIGNALS_PER_COMPANY]

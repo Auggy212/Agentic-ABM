@@ -9,9 +9,9 @@ interface Props {
 
 const DECISION_STYLE: Record<ReviewDecision, { label: string; bg: string; fg: string; border: string }> = {
   PENDING:  { label: "Pending",   bg: "var(--surface-3)",  fg: "var(--text-3)",   border: "var(--border)" },
-  APPROVED: { label: "Approved",  bg: "var(--good-50)",    fg: "var(--good-700)", border: "var(--good-100)" },
-  CORRECTED:{ label: "Corrected", bg: "#fef3c7",           fg: "#92400e",         border: "#fde68a" },
-  REMOVED:  { label: "Removed",   bg: "var(--bad-50)",     fg: "var(--bad-700)",  border: "var(--bad-100)" },
+  APPROVED:  { label: "Approved",  bg: "rgba(0,255,150,0.08)", fg: "var(--good-500)", border: "rgba(0,255,150,0.25)" },
+  CORRECTED: { label: "Corrected", bg: "rgba(255,215,0,0.08)", fg: "var(--warn-500)", border: "rgba(255,215,0,0.25)" },
+  REMOVED:   { label: "Removed",   bg: "rgba(255,70,70,0.08)", fg: "var(--bad-500)",  border: "rgba(255,70,70,0.25)"  },
 };
 
 export default function ClaimDecisionButtons({ clientId, claim }: Props) {
@@ -172,8 +172,8 @@ export default function ClaimDecisionButtons({ clientId, claim }: Props) {
         onClick={() => setMode("correct")}
         style={{
           fontSize: 12, fontWeight: 600, padding: "5px 14px", borderRadius: 8,
-          background: "#fef3c7", color: "#92400e",
-          border: "1px solid #fde68a", cursor: "pointer",
+          background: "rgba(255,215,0,0.10)", color: "var(--warn-500)",
+          border: "1px solid rgba(255,215,0,0.28)", cursor: "pointer",
         }}
       >
         ✎ Correct

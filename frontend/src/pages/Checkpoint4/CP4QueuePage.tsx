@@ -35,10 +35,10 @@ function EngagementRing({ score }: { score: number; status: CP4Status }) {
 
 function StatusChip({ status }: { status: CP4Status }) {
   const styles: Record<CP4Status, { bg: string; fg: string; icon: string }> = {
-    PENDING:   { bg: "#fffbeb", fg: "#92400e", icon: "⏳" },
-    ACCEPTED:  { bg: "#f0fdf4", fg: "#15803d", icon: "✓" },
-    REJECTED:  { bg: "#fef2f2", fg: "#b91c1c", icon: "✕" },
-    ESCALATED: { bg: "#fef2f2", fg: "#b91c1c", icon: "⚑" },
+    PENDING:   { bg: "rgba(255,215,0,0.10)", fg: "var(--warn-500)", icon: "⏳" },
+    ACCEPTED:  { bg: "rgba(0,255,150,0.10)", fg: "var(--good-500)", icon: "✓" },
+    REJECTED:  { bg: "rgba(255,70,70,0.10)", fg: "var(--bad-500)",  icon: "✕" },
+    ESCALATED: { bg: "rgba(255,70,70,0.10)", fg: "var(--bad-500)",  icon: "⚑" },
   };
   const s = styles[status];
   return (
@@ -88,7 +88,7 @@ function LeadCard({ handoff, clientId }: { handoff: SalesHandoffNote; clientId: 
           <button
             disabled={accept.isPending}
             onClick={() => accept.mutate({ handoffId: handoff.handoff_id, acceptedBy: "operator" })}
-            style={{ padding: "10px", borderRadius: 10, border: "none", background: "#15803d", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            style={{ padding: "10px", borderRadius: 10, border: "1px solid rgba(0,255,150,0.30)", background: "rgba(0,255,150,0.12)", color: "var(--good-500)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
           >
             ✓ Accept Lead
           </button>
@@ -97,7 +97,7 @@ function LeadCard({ handoff, clientId }: { handoff: SalesHandoffNote; clientId: 
             onClick={() => {
               reject.mutate({ handoffId: handoff.handoff_id, reason: "Not qualified", rejectedBy: "operator" });
             }}
-            style={{ padding: "10px", borderRadius: 10, border: "1.5px solid #fecaca", background: "#fff", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            style={{ padding: "10px", borderRadius: 10, border: "1px solid rgba(255,70,70,0.30)", background: "rgba(255,70,70,0.08)", color: "var(--bad-500)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
           >
             ✕ Reject Lead
           </button>

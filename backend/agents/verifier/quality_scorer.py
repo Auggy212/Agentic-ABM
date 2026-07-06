@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
+_MAX_POSSIBLE_SCORE = 40 + 15 + 10 + 15 + 10 + 10  # must equal 100
+assert _MAX_POSSIBLE_SCORE == 100, f"Quality score weights must sum to 100, got {_MAX_POSSIBLE_SCORE}"
+
 from backend.schemas.models import (
     EmailFinalStatus,
     JobChangeVerification,

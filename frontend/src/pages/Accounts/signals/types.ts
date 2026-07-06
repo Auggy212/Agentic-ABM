@@ -13,8 +13,9 @@ export type SignalType =
   | "LEADERSHIP_CHANGE"
   | "ICP_MATCH_NO_SIGNAL"
   | "INDUSTRY_EVENT"
-  | "COMPETITOR_FOLLOW";
-export type SignalSource = "LINKEDIN_JOBS" | "GOOGLE_NEWS" | "G2" | "CRUNCHBASE" | "REDDIT";
+  | "COMPETITOR_FOLLOW"
+  | "OTHER_NEWS";
+export type SignalSource = "LINKEDIN_JOBS" | "GOOGLE_NEWS" | "G2" | "CRUNCHBASE" | "REDDIT" | "WEB_SCRAPE";
 export type EvidenceStatus = "VERIFIED" | "INFERRED";
 export type AccountTier = "TIER_1" | "TIER_2" | "TIER_3";
 

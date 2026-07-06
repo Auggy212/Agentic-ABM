@@ -12,7 +12,7 @@ from backend.agents.cp2.gate import assert_cp2_approved
 from backend.agents.cp2.state_manager import get_state as get_cp2_state
 from backend.agents.storyteller.context_builder import build_context
 from backend.agents.storyteller.engine_router import EngineRouter
-from backend.agents.storyteller.templates.registry import TemplateRegistry
+from backend.agents.storyteller.templates.registry import TemplateRegistry, TemplateNotFoundError
 from backend.agents.storyteller.templates.seed_templates import seed_phase4_templates
 from backend.agents.storyteller.validators.diversity import validate_diversity
 from backend.agents.storyteller.validators.freshness import validate_freshness
@@ -70,9 +70,13 @@ class StorytellerAgent:
     def __init__(self, db: Session, *, engine_router: EngineRouter | None = None):
         self.db = db
         self.registry = TemplateRegistry(db)
-        self.engine_router = engine_router or EngineRouter(use_mock=os.environ.get("STORYTELLER_USE_MOCK", "1") == "1")
-        self.anthropic_budget = float(os.environ.get("OPENAI_RUN_BUDGET_USD", "50"))
+        self.engine_router = engine_router or EngineRouter(use_mock=os.environ.get("STORYTELLER_USE_MOCK", "0") == "1")
+        self.anthropic_budget = float(os.environ.get("ANTHROPIC_RUN_BUDGET_USD", "50"))
         self.openai_budget = float(os.environ.get("OPENAI_RUN_BUDGET_USD", "20"))
+        if self.anthropic_budget <= 0:
+            raise StorytellerBudgetError("ANTHROPIC_RUN_BUDGET_USD must be > 0")
+        if self.openai_budget <= 0:
+            raise StorytellerBudgetError("OPENAI_RUN_BUDGET_USD must be > 0")
 
     def run(self, client_id: str, scope: dict[str, Any] | str = "all") -> MessagingPackage:
         assert_cp2_approved(client_id, self.db)
@@ -106,18 +110,26 @@ class StorytellerAgent:
                         self.db.add(run_record)
                         self.db.commit()
                         return self._package(client_id, generated, costs)
-                    message = self._generate_one(
-                        client_id=client_id,
-                        account_domain=profile.account_domain,
-                        contact_id=profile.contact_id,
-                        tier=tier,
-                        channel=channel,
-                        position=position,
-                        engine=engine,
-                        context=context,
-                        cp2_state=cp2_state,
-                        generated_so_far=generated,
-                    )
+                    try:
+                        message = self._generate_one(
+                            client_id=client_id,
+                            account_domain=profile.account_domain,
+                            contact_id=profile.contact_id,
+                            tier=tier,
+                            channel=channel,
+                            position=position,
+                            engine=engine,
+                            context=context,
+                            cp2_state=cp2_state,
+                            generated_so_far=generated,
+                        )
+                    except TemplateNotFoundError:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(
+                            "StorytellerAgent: no template for channel=%s tier=%s position=%d — skipping",
+                            channel.value, tier.value, position,
+                        )
+                        continue
                     generated.append(message)
                     if engine == MessageEngine.ANTHROPIC_CLAUDE:
                         costs["claude"] += message.generation_metadata.token_usage.estimated_cost_usd
@@ -125,22 +137,21 @@ class StorytellerAgent:
                         costs["gpt"] += message.generation_metadata.token_usage.estimated_cost_usd
                     self._persist_message(message)
 
-                if signal and signal.buying_stage == BuyingStage.UNAWARE:
-                    if not any(m.account_domain == profile.account_domain and m.channel == MessageChannel.REDDIT_STRATEGY_NOTE for m in generated):
-                        reddit = self._generate_one(
-                            client_id=client_id,
-                            account_domain=profile.account_domain,
-                            contact_id=None,
-                            tier=tier,
-                            channel=MessageChannel.REDDIT_STRATEGY_NOTE,
-                            position=0,
-                            engine=engine,
-                            context=context,
-                            cp2_state=cp2_state,
-                            generated_so_far=generated,
-                        )
-                        generated.append(reddit)
-                        self._persist_message(reddit)
+                if signal and not any(m.account_domain == profile.account_domain and m.channel == MessageChannel.REDDIT_STRATEGY_NOTE for m in generated):
+                    reddit = self._generate_one(
+                        client_id=client_id,
+                        account_domain=profile.account_domain,
+                        contact_id=None,
+                        tier=tier,
+                        channel=MessageChannel.REDDIT_STRATEGY_NOTE,
+                        position=0,
+                        engine=engine,
+                        context=context,
+                        cp2_state=cp2_state,
+                        generated_so_far=generated,
+                    )
+                    generated.append(reddit)
+                    self._persist_message(reddit)
 
             package = self._package(client_id, generated, costs)
             run_record.status = "COMPLETED"
@@ -323,8 +334,7 @@ class StorytellerAgent:
         plan = [(MessageChannel.LINKEDIN_CONNECTION, 0)]
         plan.extend((MessageChannel.LINKEDIN_DM, pos) for pos in range(3))
         plan.extend((MessageChannel.EMAIL, pos) for pos in range(5))
-        if profile.committee_role == CommitteeRole.CHAMPION:
-            plan.append((MessageChannel.WHATSAPP, 0))
+        plan.append((MessageChannel.WHATSAPP, 0))
         return plan
 
     def _has_channel_data(self, profile: BuyerProfile, channel: MessageChannel) -> bool:

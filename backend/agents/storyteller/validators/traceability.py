@@ -100,7 +100,12 @@ def validate_traceability(
 
     if not failures:
         return ValidationResult(TraceabilityState.PASSED, [])
-    if tier == AccountTier.TIER_1 or any("required layer" in f.reason for f in failures):
+    if tier == AccountTier.TIER_1:
+        return ValidationResult(TraceabilityState.HARD_FAIL, failures)
+    # For T2/T3, empty-layer failures are SOFT_FAIL since CP2 may not be complete for all accounts.
+    # Only escalate to HARD_FAIL if a layer has a bad source_type or non-approved claim_id.
+    hard = [f for f in failures if "required layer" not in f.reason and "untraced or empty" not in f.reason]
+    if hard:
         return ValidationResult(TraceabilityState.HARD_FAIL, failures)
     return ValidationResult(TraceabilityState.SOFT_FAIL, failures)
 

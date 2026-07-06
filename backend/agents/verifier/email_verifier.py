@@ -18,6 +18,7 @@ import httpx
 
 from backend.agents.icp_scout.sources.quota_manager import (
     SOURCE_MONTHLY_LIMITS,
+    ConfigurationError,
     QuotaExhaustedError,
     check_and_increment,
     get_usage,
@@ -164,6 +165,13 @@ class EmailVerifier:
                 secondary_engine = EngineName.ZEROBOUNCE
                 secondary_result = await self._verify_with_zerobounce(email)
                 final_status = secondary_result.status
+            except ConfigurationError as exc:
+                warning = f"ZeroBounce not configured ({exc}); ambiguous NeverBounce result left as RISKY."
+                logger.warning("Verifier: %s", warning)
+                self.warnings.append(warning)
+                secondary_engine = None
+                secondary_result = None
+                final_status = EmailFinalStatus.RISKY
             except QuotaExhaustedError:
                 warning = (
                     "ZeroBounce quota exhausted; ambiguous NeverBounce result left as RISKY."
@@ -222,8 +230,8 @@ class EmailVerifier:
 
     async def _verify_with_neverbounce(self, email: str) -> EmailEngineResult:
         if not self.neverbounce_api_key:
-            logger.warning("EmailVerifier: NEVERBOUNCE_API_KEY not set")
-            return self._synthetic_result(EmailFinalStatus.RISKY, "neverbounce_api_key_missing")
+            logger.warning("EmailVerifier: NEVERBOUNCE_API_KEY not set — skipping verification")
+            return self._synthetic_result(EmailFinalStatus.NOT_FOUND, "neverbounce_api_key_missing")
 
         check_and_increment(NEVERBOUNCE_SOURCE)
         self.neverbounce_used_this_run += 1
@@ -236,12 +244,8 @@ class EmailVerifier:
 
     async def _verify_with_zerobounce(self, email: str) -> EmailEngineResult:
         if not self.zerobounce_api_key:
-            logger.warning("EmailVerifier: ZEROBOUNCE_API_KEY not set")
-            raise QuotaExhaustedError(
-                ZEROBOUNCE_SOURCE,
-                SOURCE_MONTHLY_LIMITS.get(ZEROBOUNCE_SOURCE, 0),
-                SOURCE_MONTHLY_LIMITS.get(ZEROBOUNCE_SOURCE, 0),
-                _now().date(),
+            raise ConfigurationError(
+                "ZEROBOUNCE_API_KEY is not configured — cannot use ZeroBounce for secondary verification"
             )
 
         check_and_increment(ZEROBOUNCE_SOURCE)

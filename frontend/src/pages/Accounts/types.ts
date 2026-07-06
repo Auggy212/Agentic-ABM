@@ -9,9 +9,11 @@ export interface FundingRound {
 }
 
 export interface AccountSignal {
-  type: string;
+  type?: string;
+  signal_type?: string;
   description: string;
-  date: string;
+  date?: string;
+  signal_date?: string;
   source_url: string;
 }
 
@@ -34,7 +36,7 @@ export interface AccountRecord {
   headcount: number | "not_found";
   estimated_arr: string;
   funding_stage: string;
-  last_funding_round: FundingRound;
+  last_funding_round: FundingRound | null;
   hq_location: string;
   technologies_used: string[];
   recent_signals: AccountSignal[];

@@ -43,19 +43,30 @@ class LinkedInJobsSource(BaseSignalSource):
         try:
             return await self._fetch(domain, company_name, master_context)
         except Exception as exc:
-            logger.warning("LinkedInJobsSource: failed for domain=%s: %s", domain, exc)
+            logger.warning("LinkedInJobsSource: failed for domain=%s: %s: %s", domain, type(exc).__name__, exc)
             return []
 
     async def _fetch(
         self, domain: str, company_name: str, master_context: MasterContext
     ) -> list[AccountSignal]:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(
                 f"{APOLLO_BASE_URL}/organizations/enrich",
-                headers={"Content-Type": "application/json", "Cache-Control": "no-cache"},
-                json={"api_key": APOLLO_API_KEY, "domain": domain},
+                headers={
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                    "X-Api-Key": APOLLO_API_KEY,
+                },
+                json={"domain": domain},
             )
+            if resp.status_code == 422:
+                body = resp.json()
+                err = body.get("error", "")
+                if "insufficient credits" in err.lower() or "INVALID_API_KEY_LOCATION" in err:
+                    logger.warning("LinkedInJobsSource: Apollo API error — %s", err)
+                return []
             if resp.status_code != 200:
+                logger.debug("LinkedInJobsSource: Apollo HTTP %s for domain=%s", resp.status_code, domain)
                 return []
             data = resp.json()
 

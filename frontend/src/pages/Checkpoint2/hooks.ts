@@ -119,6 +119,40 @@ export function useRejectCP2(clientId: string) {
   });
 }
 
+export function useAutoApproveCP2(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<CP2ReviewState>(
+        "/api/checkpoint-2/auto-approve",
+        null,
+        { params: { client_id: clientId } },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(cp2QueryKey(clientId), data);
+    },
+  });
+}
+
+export function useResetCP2(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<CP2ReviewState>(
+        "/api/checkpoint-2/reset",
+        null,
+        { params: { client_id: clientId } },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(cp2QueryKey(clientId), data);
+    },
+  });
+}
+
 export function useCP2AuditLog(clientId: string) {
   return useQuery({
     queryKey: ["cp2", clientId, "audit"],

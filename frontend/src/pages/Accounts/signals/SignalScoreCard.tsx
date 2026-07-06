@@ -12,8 +12,8 @@ export default function SignalScoreCard({ score }: Props) {
     >
       <div className="section-eyebrow">Signal score</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <ScoreRow label="High signals" count={score.high_count} color="#b91c1c" bg="#fef2f2" />
-        <ScoreRow label="Medium signals" count={score.medium_count} color="#b45309" bg="#fffbeb" />
+        <ScoreRow label="High signals" count={score.high_count} color="var(--bad-500)" bg="rgba(255,70,70,0.08)" />
+        <ScoreRow label="Medium signals" count={score.medium_count} color="var(--warn-500)" bg="rgba(255,215,0,0.08)" />
         <ScoreRow label="Low signals" count={score.low_count} color="var(--text-3)" bg="var(--surface-2)" />
         <div
           style={{

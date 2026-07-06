@@ -45,10 +45,12 @@ def _parse_headcount(props: dict) -> int | str:
         v = props.get(key)
         if isinstance(v, int) and v > 0:
             return v
-        # Crunchbase sometimes returns "1-10", "11-50" etc.
+        # Crunchbase returns ranges like "1-10", "11-50", "51-100" etc.
+        # Use midpoint to avoid biasing scores toward the high end.
         if isinstance(v, str) and "-" in v:
             try:
-                return int(v.split("-")[1].strip())
+                lo, hi = v.split("-", 1)
+                return (int(lo.strip()) + int(hi.strip())) // 2
             except (ValueError, IndexError):
                 pass
     return _NF
@@ -133,6 +135,12 @@ class CrunchbaseSource(BaseSource):
                 "field_id": "last_funding_type",
                 "operator_id": "includes",
                 "values": filters.funding_stages,
+            })
+        if filters.industries:
+            predicates.append({
+                "field_id": "category_groups",
+                "operator_id": "includes",
+                "values": filters.industries,
             })
 
         body: dict = {

@@ -276,20 +276,26 @@ export default function IntelReportPanel({
                 {item.date}
               </span>
               <div>
-                <a
-                  href={item.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "var(--acc-600)",
-                    textDecoration: "none",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {item.headline} ↗
-                </a>
+                {item.source_url && item.source_url !== "not_found" ? (
+                  <a
+                    href={item.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--acc-600)",
+                      textDecoration: "none",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {item.headline} ↗
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-1)", lineHeight: 1.3 }}>
+                    {item.headline}
+                  </span>
+                )}
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 3 }}>{item.summary}</div>
               </div>
             </div>
@@ -308,9 +314,9 @@ export default function IntelReportPanel({
       <div
         style={{
           padding: "16px 20px",
-          background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)",
+          background: "linear-gradient(135deg, rgba(0,212,255,0.07) 0%, rgba(0,255,150,0.07) 100%)",
           borderRadius: 10,
-          border: "1px solid #bfdbfe",
+          border: "1px solid rgba(0,212,255,0.20)",
         }}
       >
         <div
@@ -319,7 +325,7 @@ export default function IntelReportPanel({
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.1em",
-            color: "#1d4ed8",
+            color: "var(--acc-300)",
             marginBottom: 8,
           }}
         >

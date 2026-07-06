@@ -20,11 +20,11 @@ interface KpiTileProps {
 }
 
 const TONE_STYLES: Record<string, { border: string; iconBg: string; iconColor: string }> = {
-  default: { border: "var(--border)",      iconBg: "var(--surface-3)",   iconColor: "var(--text-3)" },
-  green:   { border: "var(--good-100)",    iconBg: "var(--good-50)",     iconColor: "var(--good-700)" },
-  amber:   { border: "#fde68a",            iconBg: "#fef3c7",            iconColor: "#92400e" },
-  red:     { border: "var(--bad-100)",     iconBg: "var(--bad-50)",      iconColor: "var(--bad-700)" },
-  blue:    { border: "#bae6fd",            iconBg: "#e0f2fe",            iconColor: "#0369a1" },
+  default: { border: "var(--border)",               iconBg: "rgba(255,255,255,0.04)", iconColor: "var(--text-3)"   },
+  green:   { border: "rgba(0,255,150,0.25)",         iconBg: "rgba(0,255,150,0.08)",  iconColor: "var(--good-500)" },
+  amber:   { border: "rgba(255,215,0,0.25)",         iconBg: "rgba(255,215,0,0.08)",  iconColor: "var(--warn-500)" },
+  red:     { border: "rgba(255,70,70,0.25)",         iconBg: "rgba(255,70,70,0.08)",  iconColor: "var(--bad-500)"  },
+  blue:    { border: "rgba(0,212,255,0.25)",         iconBg: "rgba(0,212,255,0.08)",  iconColor: "var(--acc-300)"  },
 };
 
 function KpiTile({ label, value, sub, tone = "default", icon }: KpiTileProps) {
@@ -37,7 +37,7 @@ function KpiTile({ label, value, sub, tone = "default", icon }: KpiTileProps) {
       position: "relative", overflow: "hidden",
       transition: "box-shadow 0.15s, transform 0.15s",
     }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.07)"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 24px rgba(0,212,255,0.15), 0 4px 16px rgba(0,0,0,0.4)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = ""; }}
     >
       <div style={{
@@ -61,10 +61,10 @@ function KpiTile({ label, value, sub, tone = "default", icon }: KpiTileProps) {
 }
 
 const STATUS_STYLE: Record<CampaignRun["status"], { color: string; bg: string; border: string }> = {
-  RUNNING:   { color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
-  COMPLETED: { color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" },
-  HALTED:    { color: "#b91c1c", bg: "#fef2f2", border: "#fecaca" },
-  FAILED:    { color: "#7f1d1d", bg: "#fef2f2", border: "#fca5a5" },
+  RUNNING:   { color: "var(--acc-300)",  bg: "rgba(0,212,255,0.08)",  border: "rgba(0,212,255,0.25)"  },
+  COMPLETED: { color: "var(--good-500)", bg: "rgba(0,255,150,0.08)",  border: "rgba(0,255,150,0.25)"  },
+  HALTED:    { color: "var(--warn-500)", bg: "rgba(255,215,0,0.08)",  border: "rgba(255,215,0,0.25)"  },
+  FAILED:    { color: "var(--bad-500)",  bg: "rgba(255,70,70,0.08)",  border: "rgba(255,70,70,0.25)"  },
 };
 
 function LaunchSection({ clientId, latestRun, halted }: { clientId: string; latestRun: CampaignRun | null; halted: boolean }) {
@@ -281,20 +281,20 @@ export default function CampaignDashboardPage() {
               <AreaChart data={trendData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="grad-opens" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="var(--acc-500)" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="var(--acc-500)" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="grad-replies" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#16a05c" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#16a05c" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="#00ff96" stopOpacity={0.20} />
+                    <stop offset="95%" stopColor="#00ff96" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="day"  tick={{ fontSize: 11, fill: "var(--text-mute)" }} axisLine={false} tickLine={false} />
                 <YAxis               tick={{ fontSize: 11, fill: "var(--text-mute)" }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 12, color: "var(--text)" }} />
-                <Area type="monotone" dataKey="opens"   stroke="var(--acc-500)" strokeWidth={2.5} fill="url(#grad-opens)"   name="Opens"   dot={false} activeDot={{ r: 5 }} />
-                <Area type="monotone" dataKey="replies" stroke="#16a05c"        strokeWidth={2.5} fill="url(#grad-replies)" name="Replies" dot={false} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="opens"   stroke="#00d4ff" strokeWidth={2.5} fill="url(#grad-opens)"   name="Opens"   dot={false} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="replies" stroke="#00ff96" strokeWidth={2.5} fill="url(#grad-replies)" name="Replies" dot={false} activeDot={{ r: 5 }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8, color: "var(--text-3)" }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -317,9 +317,9 @@ export default function CampaignDashboardPage() {
                 <XAxis dataKey="channel" tick={{ fontSize: 11, fill: "var(--text-mute)" }} axisLine={false} tickLine={false} />
                 <YAxis               tick={{ fontSize: 11, fill: "var(--text-mute)" }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 12, color: "var(--text)" }} />
-                <Bar dataKey="delivered" fill="var(--acc-500)" radius={[4,4,0,0]} name="Delivered" />
-                <Bar dataKey="opened"    fill="#0ea5e9"        radius={[4,4,0,0]} name="Opened" />
-                <Bar dataKey="replied"   fill="#16a05c"        radius={[4,4,0,0]} name="Replied" />
+                <Bar dataKey="delivered" fill="#00d4ff" radius={[4,4,0,0]} name="Delivered" />
+                <Bar dataKey="opened"    fill="#8b5cf6" radius={[4,4,0,0]} name="Opened" />
+                <Bar dataKey="replied"   fill="#00ff96" radius={[4,4,0,0]} name="Replied" />
                 <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, paddingTop: 8, color: "var(--text-3)" }} />
               </BarChart>
             </ResponsiveContainer>

@@ -7,7 +7,7 @@ import Btn from "@/components/ui/Btn";
 import PhaseLockBanner from "@/pages/Checkpoint2/PhaseLockBanner";
 import CP3PhaseLockBanner from "@/pages/Checkpoint3/PhaseLockBanner";
 
-type AgentStatus = "NOT_STARTED" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED_ON_CHECKPOINT";
+type AgentStatus = "NOT_STARTED" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED_ON_CHECKPOINT" | "CANCELLED";
 
 interface AgentRun {
   status: AgentStatus;
@@ -57,10 +57,11 @@ const AGENTS = [
 
 const STATUS_CONFIG: Record<AgentStatus, { label: string; dot: string; bg: string; fg: string }> = {
   NOT_STARTED:          { label: "Not started",  dot: "var(--ink-300)",  bg: "var(--ink-100)", fg: "var(--text-3)"   },
-  RUNNING:              { label: "Running",       dot: "#3b82f6",        bg: "#eff6ff",        fg: "#1d4ed8"         },
+  RUNNING:              { label: "Running",       dot: "var(--acc-300)", bg: "rgba(0,212,255,0.10)", fg: "var(--acc-300)" },
   COMPLETED:            { label: "Completed",     dot: "var(--good-500)", bg: "var(--good-50)", fg: "var(--good-700)" },
   FAILED:               { label: "Failed",        dot: "var(--bad-500)",  bg: "var(--bad-50)",  fg: "var(--bad-700)"  },
   BLOCKED_ON_CHECKPOINT:{ label: "Checkpoint",    dot: "var(--warn-500)", bg: "var(--warn-50)", fg: "var(--warn-700)" },
+  CANCELLED:            { label: "Cancelled",     dot: "var(--ink-400)",  bg: "var(--ink-100)", fg: "var(--text-3)"   },
 };
 
 // ── Auto-Pilot ─────────────────────────────────────────────────────────────
@@ -210,16 +211,16 @@ function AutoPilotBanner({
         background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)",
         borderRadius: 12, padding: "16px 20px",
         display: "flex", alignItems: "center", gap: 16,
-        border: "1px solid rgba(99,102,241,0.3)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+        border: "1px solid rgba(0,212,255,0.25)",
+        boxShadow: "0 4px 20px rgba(0,212,255,0.12)",
       }}>
         <div style={{
           width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
-          background: `conic-gradient(#6366f1 ${(checkpoint.seconds / 10) * 360}deg, rgba(99,102,241,0.2) 0deg)`,
+          background: `conic-gradient(#00d4ff ${(checkpoint.seconds / 10) * 360}deg, rgba(0,212,255,0.15) 0deg)`,
           display: "grid", placeItems: "center",
         }}>
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#0f2744", display: "grid", placeItems: "center" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: 16, color: "#a5b4fc" }}>{checkpoint.seconds}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: 16, color: "#00d4ff" }}>{checkpoint.seconds}</span>
           </div>
         </div>
         <div style={{ flex: 1 }}>
@@ -283,7 +284,7 @@ function AutoPilotBanner({
           padding: "8px 18px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
           background: "linear-gradient(135deg, var(--acc-500), var(--acc-700))",
           border: "none", color: "white", fontWeight: 700, fontSize: 13,
-          boxShadow: "0 2px 10px rgba(99,102,241,0.35)",
+          boxShadow: "0 0 16px rgba(0,212,255,0.35), 0 2px 10px rgba(0,0,0,0.4)",
         }}
       >
         ⚡ Enable Auto-Pilot
@@ -460,7 +461,14 @@ function AgentStatusCard({ agent, run, clientId }: { agent: (typeof AGENTS)[numb
             </div>
             {trigger.isError && (
               <div className="inline-error">
-                {(trigger.error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Run failed — check prerequisites"}
+                {(() => {
+                  const detail = (trigger.error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+                  if (!detail) return "Run failed — check prerequisites";
+                  if (detail.toLowerCase().includes("cp2") || detail.toLowerCase().includes("not approved")) {
+                    return "CP2 must be approved before running Storyteller. Go to the Checkpoint 2 tab and approve.";
+                  }
+                  return detail;
+                })()}
               </div>
             )}
           </div>

@@ -124,10 +124,8 @@ def submit_intake(
 @router.post("/draft", response_model=DraftSaveResponse, status_code=status.HTTP_200_OK)
 def save_draft(body: DraftSaveRequest, db: Session = Depends(get_db)) -> DraftSaveResponse:
     """
-    Persist a partial intake submission to SQLite (durable) and Redis (fast cache).
-    Idempotent - calling again with the same client_id overwrites the draft.
-    The draft is never deleted, even after intake completes, so the user can
-    return and see what they originally submitted.
+    Persist a partial intake submission to Supabase. Idempotent — calling again
+    with the same client_id overwrites the draft.
     """
     try:
         uuid.UUID(body.client_id)
@@ -139,7 +137,6 @@ def save_draft(body: DraftSaveRequest, db: Session = Depends(get_db)) -> DraftSa
 
     now = datetime.now(tz=timezone.utc)
 
-    # Primary: SQLite - survives Redis restarts
     existing = db.query(IntakeDraftRecord).filter(
         IntakeDraftRecord.client_id == body.client_id
     ).first()
@@ -150,11 +147,7 @@ def save_draft(body: DraftSaveRequest, db: Session = Depends(get_db)) -> DraftSa
         db.add(IntakeDraftRecord(client_id=body.client_id, data=body.payload, updated_at=now))
     db.commit()
 
-    # Secondary: Redis - best-effort fast cache
-    try:
-        redis_client.save_draft(body.client_id, body.payload)
-    except Exception:
-        logger.warning("Redis save_draft failed for client_id=%s (SQLite write succeeded)", body.client_id)
+    redis_client.save_draft(body.client_id, body.payload)
 
     return DraftSaveResponse(
         draft_id=body.client_id,
@@ -164,7 +157,7 @@ def save_draft(body: DraftSaveRequest, db: Session = Depends(get_db)) -> DraftSa
 
 @router.get("/draft/{client_id}", response_model=Dict[str, Any])
 def resume_draft(client_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Return a previously saved draft - Redis first, SQLite fallback."""
+    """Return a previously saved draft — in-memory cache first, Supabase fallback."""
     try:
         uuid.UUID(client_id)
     except ValueError:
@@ -173,15 +166,10 @@ def resume_draft(client_id: str, db: Session = Depends(get_db)) -> Dict[str, Any
             detail="client_id must be a valid UUID.",
         )
 
-    # Try Redis first (fast path)
-    try:
-        draft = redis_client.load_draft(client_id)
-        if draft is not None:
-            return draft
-    except Exception:
-        logger.warning("Redis load_draft failed for client_id=%s, falling back to SQLite", client_id)
+    draft = redis_client.load_draft(client_id)
+    if draft is not None:
+        return draft
 
-    # Fallback: SQLite
     record = db.query(IntakeDraftRecord).filter(
         IntakeDraftRecord.client_id == client_id
     ).first()

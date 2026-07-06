@@ -199,9 +199,9 @@ export default function AccountDetail() {
               ) : (
                 <div className="timeline">
                   {account.recent_signals.map((s, i) => (
-                    <div key={i} className="timeline-item" data-kind={s.type.toLowerCase()}>
+                    <div key={i} className="timeline-item" data-kind={(s.type ?? s.signal_type ?? "").toLowerCase()}>
                       <div className="timeline-meta">
-                        {s.type.replace(/_/g, " ")} · {s.date}
+                        {(s.type ?? s.signal_type ?? "").replace(/_/g, " ")} · {s.date ?? s.signal_date}
                         {s.source_url !== "not_found" && (
                           <> · <a href={s.source_url} target="_blank" rel="noreferrer" style={{ color: "var(--acc-600)" }}>source</a></>
                         )}
@@ -226,7 +226,7 @@ export default function AccountDetail() {
                   ["HQ", account.hq_location],
                   ["Funding", account.funding_stage],
                   ["ARR band", account.estimated_arr],
-                  ["Last round", `${account.last_funding_round.round} · ${account.last_funding_round.date}`],
+                  ["Last round", account.last_funding_round ? `${account.last_funding_round.round} · ${account.last_funding_round.date}` : "—"],
                   ["Enriched", formatDateTime(account.enriched_at)],
                 ] as [string, string][]).map(([k, v]) => (
                   <div key={k}>
