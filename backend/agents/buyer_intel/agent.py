@@ -107,8 +107,10 @@ def _build_past_experience(raw_contact: RawContact) -> list[PastExperience]:
 
 
 def _detect_job_change(tenure_months: int | str) -> bool:
-    if isinstance(tenure_months, int):
-        return tenure_months <= _JOB_CHANGE_THRESHOLD_MONTHS
+    # Job-change signal removed (Q6): tenure-based job-change detection proved
+    # unreliable (Apollo tenure is frequently missing/stale), so we no longer
+    # emit it as a buying signal. The schema field is retained for backward
+    # compatibility and is always False.
     return False
 
 
@@ -207,9 +209,23 @@ class BuyerIntelAgent:
         total_contacts = 0
         mismatches_flagged = 0
 
-        icp_titles: list[str] = master_context.buyers.titles
+        icp_titles: list[str] = list(master_context.buyers.titles)
         icp_seniority: list[str] = master_context.buyers.seniority
         apollo_seniority = [s.lower().replace(" ", "_").replace("-", "_") for s in icp_seniority]
+
+        # Founders/owners are always decision-makers we want on the committee, but
+        # they get filtered out of Apollo's people search when the ICP config lists
+        # only functional seniorities (C-Suite, VP, Director) and titles (CEO, CFO…).
+        # Union founder/owner seniorities and title variants so founders surface
+        # regardless of ICP config (Q7). Apollo treats values within a field as OR.
+        for extra in ("founder", "owner", "c_suite"):
+            if extra not in apollo_seniority:
+                apollo_seniority.append(extra)
+        _founder_titles = ["Founder", "Co-Founder", "Founder & CEO", "Owner", "Managing Director"]
+        _have = {t.lower() for t in icp_titles}
+        for t in _founder_titles:
+            if t.lower() not in _have:
+                icp_titles.append(t)
 
         account_semaphore = asyncio.Semaphore(_ACCOUNT_CONCURRENCY)
         db_semaphore = asyncio.Semaphore(_DB_CONCURRENCY)

@@ -26,6 +26,24 @@ interface PipelineStatus {
 interface AccountRecord { tier?: string; }
 interface AccountListResponse { accounts: AccountRecord[]; total: number; }
 
+function csvCell(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: (string | number)[][]): void {
+  const csv = rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const secs = Math.floor(diff / 1000);
@@ -116,6 +134,31 @@ export default function DashboardPage() {
   const FILTER_TABS = ["All", "ICP Scout", "Buyer Intel", "Signals", "Storyteller"];
   const filteredRuns = filter === "All" ? allRuns : allRuns.filter(r => r.agent.toLowerCase().includes(filter.toLowerCase().split(" ")[0]));
 
+  function handleExport() {
+    const rows: (string | number)[][] = [];
+    rows.push(["ABM Engine — Dashboard Report"]);
+    rows.push(["Generated", new Date().toISOString()]);
+    rows.push([]);
+    rows.push(["Metric", "Value"]);
+    rows.push(["Accounts Sourced", kpis.accountsSourced ?? 0]);
+    rows.push(["Signals Detected", kpis.signalsDetected ?? 0]);
+    rows.push(["Emails Drafted", kpis.emailsDrafted ?? 0]);
+    rows.push(["Verified Contacts", kpis.verifiedContacts ?? 0]);
+    rows.push([]);
+    rows.push(["Pipeline by Tier", "Accounts"]);
+    rows.push(["Tier 1 — Highest fit", tierCounts.T1]);
+    rows.push(["Tier 2 — Good fit", tierCounts.T2]);
+    rows.push(["Tier 3 — Possible fit", tierCounts.T3]);
+    rows.push(["Total", tierCounts.total]);
+    rows.push([]);
+    rows.push(["Recent Activity"]);
+    rows.push(["Agent", "Status", "Records Processed", "Warnings", "Started"]);
+    allRuns.forEach(r => {
+      rows.push([r.agent, r.status, r.records_processed, r.warnings_count, r.started]);
+    });
+    downloadCsv(`dashboard-report-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  }
+
   const tierConfig = [
     { label: "Tier 1 — Highest fit", sub: "", count: tierCounts.T1, color: "#4338ca", width: `${(tierCounts.T1 / maxTier) * 100}%` },
     { label: "Tier 2 — Good fit", sub: "", count: tierCounts.T2, color: "#8b5cf6", width: `${(tierCounts.T2 / maxTier) * 100}%` },
@@ -135,7 +178,7 @@ export default function DashboardPage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
           Last 30 days
         </button>
-        <button style={{ height: 36, padding: "0 15px", border: "1px solid #4338ca", background: "#4338ca", borderRadius: 7, cursor: "pointer", font: "inherit", fontSize: 13, fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 7 }}>
+        <button onClick={handleExport} style={{ height: 36, padding: "0 15px", border: "1px solid #4338ca", background: "#4338ca", borderRadius: 7, cursor: "pointer", font: "inherit", fontSize: 13, fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export report
         </button>

@@ -9,10 +9,11 @@ rather than keyword substring matching.
 from __future__ import annotations
 
 import logging
+import os
 import urllib.parse
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 import httpx
@@ -37,31 +38,49 @@ _QUERY_TERMS = (
     '"appoints" OR "hires" OR "leadership" OR "launches" OR "partnership" OR "growth")'
 )
 
+# News is only a live buying signal while it's fresh — discard articles older than
+# this window before we even spend enrichment tokens on them. Shares the funding
+# max-age env var so "funding + news" stay on one 90-day policy (see Q2).
+_MAX_NEWS_AGE_DAYS = int(os.environ.get("SIGNAL_INTEL_NEWS_MAX_AGE_DAYS",
+                        os.environ.get("SIGNAL_INTEL_FUNDING_MAX_AGE_DAYS", "90")))
+
 # Fallback intent when the enricher assigns no type/intent (LLM unavailable or ambiguous)
 _FALLBACK_INTENT = IntentLevel.MEDIUM
 
 # Keyword → (type, intent) inference used ONLY when the enricher returns no
-# signal_type. Without this, every un-typed article collapsed to EXPANSION,
-# which is why the news feed looked like nothing but expansion signals.
+# signal_type. Order matters — the first bucket that matches wins, so the
+# specific buckets (funding, leadership, hiring, M&A) are checked BEFORE the
+# broad expansion bucket. Previously "launches"/"partnership"/"growth" lived in
+# the expansion bucket and swallowed most generic news, which is why the feed
+# looked like nothing but FUNDING + EXPANSION (see Q5).
 _TYPE_KEYWORDS: list[tuple[tuple[str, ...], SignalType, IntentLevel]] = [
     (("raises", "raised", "funding", "series a", "series b", "series c", "seed round",
       "seed funding", "venture", "investment round", "secures $", "closes $"),
      SignalType.FUNDING, IntentLevel.HIGH),
     (("appoints", "names new", "joins as", "hires new", "new ceo", "new cfo", "new cto",
       "new coo", "new ciso", "chief ", "as ceo", "as cfo", "as cto", "vp of", "head of",
-      "president", "board member"),
+      "president", "board member", "steps down", "resigns", "successor"),
      SignalType.LEADERSHIP_HIRE, IntentLevel.MEDIUM),
-    (("hiring", "is hiring", "job opening", "expands team", "recruiting", "adds talent"),
+    (("hiring", "is hiring", "job opening", "expands team", "recruiting", "adds talent",
+      "headcount", "grows team"),
      SignalType.RELEVANT_HIRE, IntentLevel.MEDIUM),
-    (("acquires", "acquisition", "merger", "merges", "expansion", "expands into",
-      "launches", "partnership", "partners with", "opens new", "growth", "new market",
-      "enters "),
+    # Genuine market/footprint expansion and M&A only — NOT generic PR verbs.
+    (("acquires", "acquisition", "merger", "merges", "expands into", "opens new",
+      "new market", "enters ", "new office", "new region", "new country"),
      SignalType.EXPANSION, IntentLevel.MEDIUM),
+    # Industry/conference/award coverage that isn't a direct buying trigger.
+    (("conference", "summit", "keynote", "award", "recognized", "named to",
+      "report finds", "study", "survey"),
+     SignalType.INDUSTRY_EVENT, IntentLevel.LOW),
 ]
 
 
 def _infer_type_from_text(text: str) -> tuple[SignalType, IntentLevel]:
-    """Best-effort type/intent from headline keywords when the enricher gives none."""
+    """Best-effort type/intent from headline keywords when the enricher gives none.
+
+    Generic product/partnership/growth PR ("launches", "partners with", "growth")
+    no longer maps to EXPANSION — it falls through to OTHER_NEWS so the type
+    distribution reflects reality instead of collapsing into EXPANSION."""
     low = text.lower()
     for keywords, sig_type, intent in _TYPE_KEYWORDS:
         if any(kw in low for kw in keywords):
@@ -98,6 +117,11 @@ class GoogleNewsSource(BaseSignalSource):
         root = ET.fromstring(content)
         items = root.findall(".//item")
 
+        # Only capture news from the last _MAX_NEWS_AGE_DAYS days (Q2). Articles
+        # with an unparseable/missing pubDate are treated as "now" and kept — we
+        # don't drop a signal just because Google omitted the date.
+        cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_NEWS_AGE_DAYS)
+
         # Collect raw articles — up to 15 for the LLM to filter
         raw_articles: list[dict] = []
         for item in items[:15]:
@@ -115,6 +139,12 @@ class GoogleNewsSource(BaseSignalSource):
                 detected_at = parsedate_to_datetime(pub_date_text) if pub_date_text else datetime.now(timezone.utc)
             except Exception:
                 detected_at = datetime.now(timezone.utc)
+            if detected_at.tzinfo is None:
+                detected_at = detected_at.replace(tzinfo=timezone.utc)
+
+            # Skip stale news before spending any enrichment tokens on it.
+            if detected_at < cutoff:
+                continue
 
             raw_articles.append({
                 "id": str(uuid.uuid4()),

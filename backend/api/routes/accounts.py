@@ -135,7 +135,7 @@ async def discover(
 def list_accounts(
     client_id: str = Query(..., description="Client UUID"),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(50, ge=1, le=100, description="Results per page"),
+    page_size: int = Query(50, ge=1, le=1000, description="Results per page"),
     tier: Optional[str] = Query(None, description="Filter by tier: TIER_1 | TIER_2 | TIER_3"),
     db: Session = Depends(get_db),
 ) -> AccountListResponse:

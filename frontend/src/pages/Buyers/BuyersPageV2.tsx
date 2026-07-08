@@ -52,6 +52,42 @@ function buyerName(b: BuyerProfile): string {
   return computed || "Unknown";
 }
 
+// Wrap a value for CSV: quote it and escape embedded quotes so commas/newlines
+// inside names, titles or pain points don't break the column layout.
+function csvCell(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function exportBuyersCsv(buyers: Array<BuyerProfile & { _domain: string }>): void {
+  const headers = [
+    "Name", "Title", "Company", "Domain", "Committee Role",
+    "Email", "Phone", "LinkedIn", "Pain Points",
+  ];
+  const rows = buyers.map(b => [
+    buyerName(b),
+    b.current_title ?? b.title ?? "",
+    b.company_name ?? b._domain,
+    b._domain,
+    roleMeta(b.committee_role).label,
+    b.email ?? "",
+    b.phone ?? "",
+    b.linkedin_url ?? "",
+    (b.pain_points ?? []).join("; "),
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n");
+  // Prepend a UTF-8 BOM so Excel renders accented characters correctly.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `buyer-intel-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function Skeleton({ w = "100%", h = 16, r = 4 }: { w?: string | number; h?: number; r?: number }) {
   return <div style={{ width: w, height: h, borderRadius: r, background: "#f0f0ec" }} />;
 }
@@ -159,6 +195,31 @@ export default function BuyersPageV2() {
           <p style={{ margin: 0, fontSize: 13, color: "#8a8f9e" }}>Mapped stakeholders across your target accounts</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => exportBuyersCsv(allBuyers)}
+            disabled={allBuyers.length === 0}
+            title={allBuyers.length === 0 ? "No buyer profiles to export" : "Export all buyer profiles to CSV"}
+            style={{
+              height: 34,
+              padding: "0 14px",
+              borderRadius: 7,
+              border: "1px solid #e3e3df",
+              background: allBuyers.length === 0 ? "#f7f7f5" : "#fff",
+              cursor: allBuyers.length === 0 ? "not-allowed" : "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              color: allBuyers.length === 0 ? "#a3a7b3" : "#3a3f4c",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
           <button
             onClick={handleReenrich}
             disabled={reenriching}
@@ -182,6 +243,7 @@ export default function BuyersPageV2() {
             </svg>
             {reenriching ? "Starting…" : "Re-enrich contacts"}
           </button>
+          </div>
           {reenrichMsg && (
             <span style={{ fontSize: 12, color: reenrichMsg.toLowerCase().includes("failed") ? "#dc2626" : "#047857" }}>
               {reenrichMsg}

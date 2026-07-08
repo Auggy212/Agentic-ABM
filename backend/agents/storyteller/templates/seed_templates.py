@@ -54,7 +54,6 @@ CONTACT
   full_name            : {{contact_full_name}}
   title                : {{contact_title}}
   committee_role       : {{contact_committee_role}}
-  job_change_signal    : {{contact_job_change}}
   approved_pains       : {{contact_approved_pain_points}}
   pain_ids             : {{contact_approved_pain_point_ids}}
 
@@ -82,7 +81,7 @@ Output STRICT JSON — no markdown, no extra keys:
     "buyer_hook": {
       "text": "<exact sentence used>",
       "source_claim_id": "<UUID or null>",
-      "source_type": "<JOB_CHANGE_SIGNAL|RECENT_ACTIVITY|BUYER_PAIN_POINT>",
+      "source_type": "<RECENT_ACTIVITY|BUYER_PAIN_POINT>",
       "untraced": false
     },
     "pain": {
@@ -102,7 +101,7 @@ Output STRICT JSON — no markdown, no extra keys:
 
 TRACEABILITY RULES (hard):
 - account_hook → source_type must be one of: INTEL_REPORT_PRIORITY, INTEL_REPORT_COMPETITOR, SIGNAL_TIMELINE, RECENT_ACTIVITY
-- buyer_hook   → source_type must be one of: JOB_CHANGE_SIGNAL, RECENT_ACTIVITY, BUYER_PAIN_POINT
+- buyer_hook   → source_type must be one of: RECENT_ACTIVITY, BUYER_PAIN_POINT
 - pain         → source_type must be one of: BUYER_PAIN_POINT, INTEL_REPORT_PAIN
 - value        → source_type must be one of: MASTER_CONTEXT_VALUE_PROP, MASTER_CONTEXT_WIN_THEME
 - If the context value for a layer is empty or null, you MUST still write a short, generic but non-empty sentence for "text", set untraced=true, and source_claim_id=null.

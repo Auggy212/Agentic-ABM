@@ -40,6 +40,7 @@ from backend.schemas.models import (
     MasterContext,
     SignalReport,
     SignalScore,
+    SignalSource,
     SignalType,
 )
 
@@ -50,25 +51,71 @@ _MAX_CONCURRENT = int(os.environ.get("SIGNAL_INTEL_MAX_CONCURRENT", "6"))
 _ACCOUNT_CONCURRENCY = int(os.environ.get("SIGNAL_INTEL_ACCOUNT_CONCURRENCY", "10"))
 _DB_CONCURRENCY = int(os.environ.get("SIGNAL_INTEL_DB_CONCURRENCY", "4"))
 _SOURCE_FETCH_TIMEOUT = float(os.environ.get("SIGNAL_INTEL_SOURCE_TIMEOUT_SECS", "45.0"))
-# Funding is only a live buying signal while it's fresh — drop FUNDING signals
-# whose event date is older than this window.
+# Funding and news are only live buying signals while they're fresh — drop
+# funding/news signals whose event date is older than this window (Q2).
 _FUNDING_MAX_AGE_DAYS = int(os.environ.get("SIGNAL_INTEL_FUNDING_MAX_AGE_DAYS", "90"))
+_NEWS_MAX_AGE_DAYS = int(os.environ.get("SIGNAL_INTEL_NEWS_MAX_AGE_DAYS", str(_FUNDING_MAX_AGE_DAYS)))
+
+# Signal types that represent time-sensitive "news" and must respect the news
+# max-age window regardless of which source surfaced them.
+_NEWS_SIGNAL_TYPES: frozenset[SignalType] = frozenset({
+    SignalType.EXPANSION,
+    SignalType.LEADERSHIP_HIRE,
+    SignalType.LEADERSHIP_CHANGE,
+    SignalType.INDUSTRY_EVENT,
+    SignalType.OTHER_NEWS,
+})
 
 
-def _drop_stale_funding(signals: list[AccountSignal]) -> list[AccountSignal]:
-    """Remove FUNDING signals whose event date is older than the max-age window.
-    Non-funding signals and signals without a usable date are kept."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=_FUNDING_MAX_AGE_DAYS)
+def _drop_stale_signals(signals: list[AccountSignal]) -> list[AccountSignal]:
+    """Drop funding and news signals older than their max-age window (Q2).
+
+    - FUNDING (any source)                     → _FUNDING_MAX_AGE_DAYS
+    - GOOGLE_NEWS source OR a news-type signal  → _NEWS_MAX_AGE_DAYS
+
+    Signals without a usable date, and non-funding/non-news signals (e.g. G2
+    COMPETITOR_REVIEW, hiring, web-presence), are kept unchanged."""
+    now = datetime.now(timezone.utc)
+    funding_cutoff = now - timedelta(days=_FUNDING_MAX_AGE_DAYS)
+    news_cutoff = now - timedelta(days=_NEWS_MAX_AGE_DAYS)
     kept: list[AccountSignal] = []
     for s in signals:
-        if s.type == SignalType.FUNDING and s.detected_at is not None:
-            dt = s.detected_at
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            if dt < cutoff:
-                continue
+        if s.detected_at is None:
+            kept.append(s)
+            continue
+        dt = s.detected_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if s.type == SignalType.FUNDING and dt < funding_cutoff:
+            continue
+        is_news = s.source == SignalSource.GOOGLE_NEWS or s.type in _NEWS_SIGNAL_TYPES
+        if is_news and dt < news_cutoff:
+            continue
         kept.append(s)
     return kept
+
+
+_INTENT_RANK = {IntentLevel.HIGH: 3, IntentLevel.MEDIUM: 2, IntentLevel.LOW: 1}
+
+
+def _dedupe_signals(signals: list[AccountSignal]) -> list[AccountSignal]:
+    """Collapse near-duplicate signals that different sources surface for the same
+    underlying event (e.g. a funding round reported by Google News AND scraped from
+    the company blog). Dedup key = (type, first 60 chars of a normalised
+    description). When two signals collide, keep the higher-intent one. This stops
+    the signal score from being inflated by the same event counted 2–3× (Q1)."""
+    best: dict[tuple, AccountSignal] = {}
+    order: list[tuple] = []
+    for s in signals:
+        norm = " ".join((s.description or "").lower().split())[:60]
+        key = (s.type, norm)
+        current = best.get(key)
+        if current is None:
+            best[key] = s
+            order.append(key)
+        elif _INTENT_RANK[s.intent_level] > _INTENT_RANK[current.intent_level]:
+            best[key] = s
+    return [best[k] for k in order]
 
 
 def _compute_signal_score(signals: list[AccountSignal]) -> SignalScore:
@@ -163,8 +210,10 @@ class SignalIntelAgent:
                     for result in results:
                         signals.extend(result)
 
-                # Funding older than the max-age window is stale — drop it.
-                signals = _drop_stale_funding(signals)
+                # Funding/news older than the max-age window is stale — drop it.
+                signals = _drop_stale_signals(signals)
+                # Collapse the same event surfaced by multiple sources.
+                signals = _dedupe_signals(signals)
 
                 # ── Classify buying stage ────────────────────────────────────
                 stage, method, reasoning = await classify_buying_stage(signals)

@@ -215,20 +215,18 @@ def _make_buyer_profile(
 # ---------------------------------------------------------------------------
 
 class TestDetectJobChange:
-    def test_tenure_5_months_is_job_change(self):
-        assert _detect_job_change(5) is True
+    # Job-change signal removed (Q6) — detection is disabled and always returns
+    # False regardless of tenure, so the signal never drives outreach.
+    def test_short_tenure_no_longer_flags_job_change(self):
+        assert _detect_job_change(5) is False
+        assert _detect_job_change(6) is False
+        assert _detect_job_change(0) is False
 
-    def test_tenure_6_months_is_job_change(self):
-        assert _detect_job_change(6) is True
-
-    def test_tenure_7_months_is_not_job_change(self):
+    def test_long_tenure_is_not_job_change(self):
         assert _detect_job_change(7) is False
 
     def test_tenure_not_found_is_not_job_change(self):
         assert _detect_job_change(_NF) is False
-
-    def test_tenure_0_months_is_job_change(self):
-        assert _detect_job_change(0) is True
 
 
 # ---------------------------------------------------------------------------
@@ -354,13 +352,16 @@ class TestContactPicker:
         result = pick_committee(candidates)
         assert len(result) == 1
 
-    def test_highest_confidence_dm_is_selected(self):
+    def test_highest_confidence_dm_is_selected_first(self):
         low_dm = _make_buyer_profile(role=CommitteeRole.DECISION_MAKER, confidence=0.40)
         high_dm = _make_buyer_profile(role=CommitteeRole.DECISION_MAKER, confidence=0.95)
         result = pick_committee([low_dm, high_dm])
         dms = [p for p in result if p.committee_role == CommitteeRole.DECISION_MAKER]
-        assert len(dms) == 1
+        # The DM slot always takes the highest-confidence DM first...
         assert dms[0].committee_role_confidence == 0.95
+        # ...and a second decision-maker (e.g. a Founder alongside the CEO) now
+        # fills leftover committee capacity instead of being dropped (Q7).
+        assert len(dms) == 2
 
 
 # ---------------------------------------------------------------------------

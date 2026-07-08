@@ -2,7 +2,7 @@
 
 A full-stack application for discovering, qualifying, and engaging target accounts through agentic workflows. Built with FastAPI (Python) backend and React (TypeScript) frontend.
 
-**Current Release:** Phase 3–5 Complete (`feature/Auggy` branch)
+**Current Release:** Phases 1–5 Complete + Signal Intelligence, AI Copilot & Visual generation (`Feature/Auggy` branch)
 
 ---
 
@@ -12,11 +12,13 @@ ABM Engine automates account-based marketing through orchestrated, multi-phase w
 
 1. **Discovery** — Use AI to find ideal customer profiles (ICPs) from multiple data sources
 2. **Qualification** — Score and rank accounts across industry, size, tech stack, funding, and buying signals
-3. **Intelligence** — Enrich accounts with buyer personas, org charts, pain points
-4. **Messaging** — Generate personalized narratives using LLMs (Claude/GPT-4o-mini)
-5. **Campaign** — Execute multi-channel outbound via Instantly.ai, Phantombuster, Twilio, or email
-6. **Feedback** — Collect client approval and engagement signals for continuous learning
-7. **Handoff** — Classify responses and prepare qualified leads for sales teams
+3. **Signal Intelligence** — Capture buying signals (funding, hiring, news, competitor reviews) and classify buying stage
+4. **Buyer Intelligence** — Enrich accounts with buyer personas, org charts, pain points
+5. **Messaging** — Generate personalized narratives using LLMs (Claude / OpenAI / Groq)
+6. **Campaign** — Execute multi-channel outbound via Instantly.ai, Phantombuster, Twilio, or email
+7. **Feedback** — Collect client approval and engagement signals for continuous learning
+8. **Handoff** — Classify responses and prepare qualified leads for sales teams
+9. **Copilot & Visuals** — RAG-powered assistant and generated visual assets across the pipeline
 
 ---
 
@@ -24,10 +26,12 @@ ABM Engine automates account-based marketing through orchestrated, multi-phase w
 
 ### Backend
 - **Framework**: FastAPI (Python 3.10+)
-- **Database**: SQLite (with Postgres support)
-- **Cache**: Redis (draft persistence)
-- **LLMs**: Anthropic Claude, OpenAI GPT-4o-mini
-- **APIs**: Apollo.io, Harmonic.ai, Crunchbase, BuiltWith
+- **Database**: SQLite by default (Postgres/Supabase supported via `DATABASE_URL`)
+- **Auth**: Session/JWT with bcrypt password hashing (`itsdangerous`)
+- **LLMs**: Anthropic Claude (primary), OpenAI, Groq, Perplexity (research)
+- **Data APIs**: Apollo.io, Harmonic.ai, Crunchbase, BuiltWith, Reddit, Google News RSS, G2
+- **Enrichment/Validation**: Hunter, NeverBounce, ZeroBounce, Clay
+- **Outbound**: Instantly.ai, Phantombuster, Twilio
 - **Testing**: pytest
 
 ### Frontend
@@ -112,45 +116,50 @@ abm-engine/
 ├── backend/                          # FastAPI application
 │   ├── agents/                       # Phase-specific agents
 │   │   ├── intake/                   # MasterContext validation
-│   │   ├── icp_scout/                # Account discovery
+│   │   ├── icp_scout/                # Account discovery & scoring
+│   │   ├── signal_intel/             # Buying-signal capture & stage classification
 │   │   ├── buyer_intel/              # Buyer enrichment
-│   │   ├── cp2/                      # Checkpoint 2 review
-│   │   ├── cp3/                      # Checkpoint 3 messaging
+│   │   ├── cp2/                      # Checkpoint 2 review gate
 │   │   ├── storyteller/              # LLM narrative generation
-│   │   ├── campaign/                 # Outbound execution
-│   │   ├── cp4/                      # Checkpoint 4 review
-│   │   ├── verifier/                 # Response classification
-│   │   └── recent_activity/          # Activity tracking
-│   ├── api/routes/                   # RESTful endpoints
-│   ├── db/                           # SQLite models
+│   │   ├── cp3/                      # Checkpoint 3 messaging gate
+│   │   ├── campaign/                 # Multi-transport outbound execution
+│   │   ├── cp4/                      # Checkpoint 4 review gate
+│   │   ├── verifier/                 # Response verification & classification
+│   │   ├── recent_activity/          # Activity tracking (PhantomBuster)
+│   │   ├── copilot/                  # RAG-powered assistant (retriever + indexer)
+│   │   └── visual/                   # Visual asset generation
+│   ├── api/routes/                   # RESTful endpoints (auth, intake, accounts, signals, …)
+│   ├── db/                           # SQLAlchemy models & session
+│   ├── orchestration/crewai/         # CrewAI agent/task orchestration
 │   ├── schemas/                      # JSON schema definitions
 │   ├── scripts/                      # Data seeding
-│   ├── services/                     # API clients
+│   ├── services/                     # API clients (Groq, embedder, …)
 │   ├── main.py                       # FastAPI entrypoint
+│   ├── config_validator.py           # Startup env/key validation
 │   ├── requirements.txt
+│   ├── docker-compose.yml
 │   ├── .env.example
 │   └── README.md                     # Backend documentation
 │
-├── frontend/                         # React+Vite application
+├── frontend/                         # React + Vite application
 │   ├── src/
 │   │   ├── pages/                    # Phase-specific pages
-│   │   │   ├── Intake/
-│   │   │   ├── ICP/
-│   │   │   ├── Checkpoint2/
-│   │   │   ├── Checkpoint3/
-│   │   │   ├── ClientReview/
-│   │   │   ├── Campaign/
-│   │   │   ├── StorytellerPage/
-│   │   │   └── Pipeline/
+│   │   │   ├── Landing/  Dashboard/  Intake/  Accounts/
+│   │   │   ├── Signals/  Buyers/  Storyteller/
+│   │   │   ├── Checkpoint2/  Checkpoint3/  Checkpoint4/  Checkpoints/
+│   │   │   ├── Campaign/  Sequences/  ClientReview/
+│   │   │   ├── Verification/  SalesHandoff/  Visuals/
+│   │   │   ├── Agents/  Integrations/  Pipeline/
 │   │   ├── components/               # Reusable UI components
+│   │   ├── hooks/  store/  types/    # Hooks, Zustand stores, shared types
 │   │   ├── mocks/                    # MSW mock handlers
 │   │   ├── App.tsx                   # Main router
 │   │   └── main.tsx                  # React entrypoint
 │   ├── package.json
 │   ├── vite.config.ts
-│   ├── .env.example
 │   └── README.md                     # Frontend documentation
 │
+├── API_KEYS.md                       # Full API-key reference & cost estimates
 ├── GIT_WORKFLOW.md                   # Git strategy & conventions
 └── README.md                         # This file
 ```
@@ -168,6 +177,10 @@ abm-engine/
 - Discover accounts from Apollo.io, Harmonic.ai, Crunchbase, BuiltWith
 - Score across 6 dimensions: industry, size, tech, geography, funding, triggers
 - User reviews, edits, ranks, or uploads existing CSV
+
+### Phase 2.5: Signal Intelligence
+- Capture buying signals: funding (Crunchbase), hiring (Apollo), news (Google News RSS), pain points (Reddit), competitor reviews (G2)
+- Classify buying stage and synthesize intel reports (Perplexity deep research + Claude synthesis)
 
 ### Phase 3: Buyer Intelligence
 - Enrich top accounts with buyer personas, org charts, pain points
@@ -208,15 +221,18 @@ abm-engine/
 
 ## ✨ Latest Features (Feature/Auggy)
 
-- ✅ **CP3 Agent** — Message review, operator approval, client feedback
+- ✅ **Signal Intelligence Agent** — Multi-source buying-signal capture & buying-stage classification
+- ✅ **AI Copilot** — RAG-powered assistant (embedder + retriever + indexer) over pipeline context
+- ✅ **Visual Agent** — Generated visual assets for accounts and messaging
+- ✅ **Authentication** — Session/JWT auth with bcrypt hashing
+- ✅ **CrewAI Orchestration** — Agents/tasks/crew wiring under `backend/orchestration/crewai`
 - ✅ **Storyteller Agent** — Multi-tier LLM generation with template validation
-- ✅ **Verifier Agent** — Response classification & handoff notes
+- ✅ **Verifier Agent** — Response verification & classification with handoff notes
 - ✅ **Campaign Agent** — Multi-transport outbound with quotas & circuit breakers
 - ✅ **Client Review Portal** — Buyer approval flows & feedback aggregation
-- ✅ **CP4 Agent** — Campaign performance review & approval
-- ✅ **API Routes** — 11 new endpoints for CP3, CP4, Campaign, Client Review, Storyteller, Templates, Webhooks
-- ✅ **Test Suite** — Comprehensive tests for Phase 3/4/5 schemas and agents
-- ✅ **Frontend Pages** — CP3 operator UI, client review portal, campaign dashboard, storyteller templates
+- ✅ **CP2/CP3/CP4 Gates** — Human review checkpoints with invariant enforcement
+- ✅ **API Routes** — 22 routers incl. auth, signals, copilot, visual, dashboard, pipeline, sequences
+- ✅ **Frontend** — 20 pages incl. dashboard, signals, storyteller, campaign, client review, sales handoff
 
 ---
 
@@ -226,25 +242,29 @@ abm-engine/
 |-------|---------|--------|---------|----------|
 | 1 | Intake | ✅ | MasterContext CRUD | Form + draft persistence |
 | 2 | ICP Scout | ✅ | Multi-source discovery, scoring | Discovery UI, ranking |
+| 2.5 | Signal Intel | ✅ | Signal capture, stage classification | Signals page |
 | 3 | Buyer Intel | ✅ | Persona/org enrichment | Detail view |
-| CP2 | Manual Review | ✅ | Approval workflow | Review & sign-off |
+| CP2 | Manual Review | ✅ | Approval workflow + invariants | Review & sign-off |
 | CP3 | Messaging | ✅ | Storyteller, templates | Message cards, feedback panel |
 | 5 | Campaign | ✅ | Multi-transport outbound | Campaign dashboard |
 | CP4 | Campaign Review | ✅ | Approval workflow | Metrics + approval |
 | Client | Approval Portal | ✅ | Buyer flows | Feedback form |
-| Verify | Response Classification | ✅ | Verifier agent | Handoff notes |
+| Verify | Response Verification | ✅ | Verifier agent | Handoff notes |
+| — | Copilot | ✅ | RAG retriever + indexer | In-app assistant |
+| — | Visuals | ✅ | Visual generation agent | Visuals page |
+| — | Auth | ✅ | Session/JWT + bcrypt | Login flow |
 
 ---
 
 ## 📚 Documentation
 
+- **[API_KEYS.md](./API_KEYS.md)** — Full API-key reference, free/paid tiers, budget caps, and per-run cost estimates
 - **[backend/README.md](./backend/README.md)** — Backend API, sources, scoring, environment variables, testing
 - **[frontend/README.md](./frontend/README.md)** — Frontend setup, pages, components, types, development tips
 - **[backend/docs/](./backend/docs/)** — Phase-specific dry-run scripts, handoff guides, setup instructions
-  - `cp3_dry_run_script.md`
-  - `phase3_to_phase4_handoff.md`
-  - `phase4_to_phase5_handoff.md`
-  - `GROQ_SETUP.md`
+  - `TOOL_SETUP.md`, `GROQ_SETUP.md`
+  - `cp2_dry_run_script.md`, `cp2_review_checklist.md`, `cp3_dry_run_script.md`
+  - `phase2_to_phase3_handoff.md`, `phase3_to_phase4_handoff.md`, `phase4_to_phase5_handoff.md`, `phase5_phantombuster_handoff.md`
 - **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** — Branch strategy, commit conventions, PR process
 
 ---
@@ -283,18 +303,26 @@ Visit `http://localhost:8000/docs` (Swagger UI)
 
 ## 🌐 Environment Variables
 
+> See **[API_KEYS.md](./API_KEYS.md)** for the complete key reference, free/paid tiers, and budget caps. The table below is a quick summary.
+
 ### Backend (`backend/.env`)
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `ANTHROPIC_API_KEY` | No | Claude LLM (Phase 3+) |
-| `OPENAI_API_KEY` | No | GPT-4o-mini fallback (Phase 3+) |
-| `APOLLO_API_KEY` | No | ICP Scout source |
+| `ANTHROPIC_API_KEY` | Recommended | Primary LLM for all agents |
+| `APOLLO_API_KEY` | Recommended | ICP Scout / Signal Intel source |
+| `SECRET_KEY` | Recommended | JWT/session signing secret (any strong random string) |
+| `OPENAI_API_KEY` | No | Tier 2/3 Storyteller generation |
+| `GROQ_API_KEY` | No | Fast/cheap LLM fallback |
+| `PERPLEXITY_API_KEY` | No | Signal Intel deep research |
 | `HARMONIC_API_KEY` | No | Funded startup discovery |
 | `CRUNCHBASE_API_KEY` | No | Company funding data |
 | `BUILTWITH_API_KEY` | No | Tech stack detection |
-| `REDIS_URL` | No | Draft persistence (optional) |
-| `DATABASE_URL` | No | Postgres (optional; defaults to SQLite) |
+| `INSTANTLY_API_KEY` | No | Outbound email (Phase 5) |
+| `HUNTER_API_KEY` / `NEVERBOUNCE_API_KEY` | No | Email discovery & validation |
+| `DATABASE_URL` | No | Postgres/Supabase (defaults to SQLite) |
+| `REDIS_URL` | No | Caching/queues (optional) |
 | `TEMPLATE_ADMIN_TOKEN` | No | Prompt template writes |
+| `ANTHROPIC_RUN_BUDGET_USD` / `OPENAI_RUN_BUDGET_USD` | No | Per-run LLM spend caps (default 50 / 20) |
 
 ### Frontend (`frontend/.env.local`)
 | Variable | Default | Purpose |
@@ -328,7 +356,7 @@ Visit `http://localhost:8000/docs` (Swagger UI)
 
 ---
 
-**Last Updated**: May 4, 2026  
-**Current Branch**: `feature/Auggy` (Phase 3–5 Complete)  
+**Last Updated**: July 6, 2026  
+**Current Branch**: `Feature/Auggy` (Phases 1–5 + Signal Intel, Copilot & Visuals)  
 **Python**: 3.10+  
 **Node.js**: 18+

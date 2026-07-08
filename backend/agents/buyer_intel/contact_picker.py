@@ -64,4 +64,19 @@ def pick_committee(
         if len(selected) >= target_size:
             break
 
+    # Second pass — fill any remaining capacity with the highest-confidence
+    # candidates not already picked, ordered DM → Champion → Blocker → Influencer.
+    # This is what surfaces a *second* decision-maker (e.g. a Founder alongside the
+    # CEO): previously the single DM slot dropped them and left a slot empty (Q7).
+    if len(selected) < target_size:
+        already = {id(p) for p in selected}
+        leftovers = [
+            p
+            for role in _ROLE_SLOTS
+            for p in buckets[role]
+            if id(p) not in already
+        ]
+        leftovers.sort(key=lambda p: p.committee_role_confidence, reverse=True)
+        selected.extend(leftovers[: target_size - len(selected)])
+
     return selected[:target_size]

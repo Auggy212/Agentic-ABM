@@ -81,7 +81,10 @@ def build_context(
         "contact_full_name": contact.full_name,
         "contact_title": contact.current_title,
         "contact_committee_role": contact.committee_role.value,
-        "contact_job_change": contact.job_change_signal,
+        # Job-change signal removed from messaging (Q6) — no longer fed to the
+        # generator. Kept as an empty string so any stale template placeholder
+        # renders blank rather than "False".
+        "contact_job_change": "",
         "contact_approved_pain_points": [pain["text"] for pain in approved_pains],
         "contact_approved_pain_point_ids": [pain["claim_id"] for pain in approved_pains],
         "buying_stage": signals.buying_stage.value if signals else "",
